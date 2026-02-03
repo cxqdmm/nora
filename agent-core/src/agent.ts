@@ -4,32 +4,33 @@ import { MCPManager } from './mcp-manager.js';
 import { Planner, Plan } from './planner.js';
 
 const SYSTEM_PROMPT = `
-You are an advanced AI Agent with access to a Python Sandbox environment.
+You are an advanced AI Agent with access to a set of tools.
 
 **Capabilities:**
-1. You can write and execute Python code to solve computational problems, data processing tasks, or general scripting.
-2. You have access to a persistent Python environment (variables are preserved between executions in the same session, if supported by the sandbox - currently assume stateless for safety unless specified).
+1. You can write and execute Python code (via \`execute_code\`) for calculation and data processing.
+2. You can perform filesystem operations (read/write/list) via provided tools.
 
-**CRITICAL RULES for Python Execution:**
-1. **ALWAYS use \`print(...)\` to output the final result.** The sandbox only captures \`stdout\` and \`stderr\`. If you calculate a value but don't print it, you will see no output.
-2. Do not rely on return values of the code block.
-3. Write complete, valid Python scripts.
+**CRITICAL RULES:**
+1. **Python Execution**: ALWAYS use \`print(...)\` to output the final result.
+2. **Filesystem**: Use absolute paths or paths relative to the allowed root.
+3. **General**: Interpret tool outputs and provide a clear final answer.
 
 **Interaction Style:**
-- When a user asks a question that requires calculation or code, IMMEDIATELY generate a tool call to \`execute_code\`.
-- After receiving the tool output, interpret it and answer the user's question.
-- If the tool output is empty or indicates an error, analyze why (e.g., forgot to print) and try again or explain the error.
+- Use the Planner's plan as a guide.
+- Execute tools sequentially.
+- If a tool fails, analyze the error and retry or adjust the plan.
 `;
 
 export class Agent {
-  private mcp: MCPManager;
+  private mcps: MCPManager[];
   private llm: LLMService;
   private planner: Planner;
   private history: ChatCompletionMessageParam[] = [];
   private tools: ChatCompletionTool[] = [];
+  private toolMap: Map<string, MCPManager> = new Map();
 
-  constructor(mcp: MCPManager, llm: LLMService) {
-    this.mcp = mcp;
+  constructor(mcps: MCPManager[], llm: LLMService) {
+    this.mcps = mcps;
     this.llm = llm;
     this.planner = new Planner(llm);
     
@@ -41,16 +42,27 @@ export class Agent {
   }
 
   async initialize() {
-    // Load tools from MCP
-    const mcpTools = await this.mcp.listTools();
-    this.tools = mcpTools.tools.map(tool => ({
-      type: "function",
-      function: {
-        name: tool.name,
-        description: tool.description || "",
-        parameters: tool.inputSchema as any
+    this.tools = [];
+    this.toolMap.clear();
+
+    for (const mcp of this.mcps) {
+      try {
+        const mcpTools = await mcp.listTools();
+        for (const tool of mcpTools.tools) {
+          this.tools.push({
+            type: "function",
+            function: {
+              name: tool.name,
+              description: tool.description || "",
+              parameters: tool.inputSchema as any
+            }
+          });
+          this.toolMap.set(tool.name, mcp);
+        }
+      } catch (e) {
+        console.error(`[Agent] Failed to list tools from one of the MCP servers:`, e);
       }
-    }));
+    }
     console.log(`[Agent] Initialized with tools: ${this.tools.map(t => t.function.name).join(', ')}`);
   }
 
@@ -77,12 +89,12 @@ export class Agent {
       });
     }
 
-    // Add user message to history (or reference the plan)
+    // Add user message to history
     this.history.push({ role: "user", content: userInput });
 
     let finalAnswer = "";
     let turnCount = 0;
-    const MAX_TURNS = 10; // Increased for multi-step plans
+    const MAX_TURNS = 15;
 
     while (turnCount < MAX_TURNS) {
       turnCount++;
@@ -109,8 +121,20 @@ export class Agent {
             continue;
           }
 
+          // Find correct MCP manager for this tool
+          const mcp = this.toolMap.get(toolCall.function.name);
+          if (!mcp) {
+             console.error(`[Agent] Tool ${toolCall.function.name} not found in any MCP server.`);
+             this.history.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: `Error: Tool ${toolCall.function.name} not found.`
+            });
+            continue;
+          }
+
           try {
-            const toolResult = await this.mcp.callTool(toolCall.function.name, args);
+            const toolResult = await mcp.callTool(toolCall.function.name, args);
             
             // Format output
             const contentText = toolResult.content.map(c => c.type === 'text' ? c.text : '').join("\n");
@@ -119,7 +143,7 @@ export class Agent {
             this.history.push({
               role: "tool",
               tool_call_id: toolCall.id,
-              content: contentText || "(No output captured. Did you forget to print?)"
+              content: contentText || "(Tool executed successfully with no text output)"
             });
           } catch (error: any) {
             console.error(`[Agent] Tool execution failed: ${error.message}`);

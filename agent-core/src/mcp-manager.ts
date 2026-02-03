@@ -1,14 +1,22 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
+export interface ToolDef {
+  name: string;
+  description?: string;
+  inputSchema?: any;
+}
+
 export class MCPManager {
   private client: Client;
   private transport: StdioClientTransport | null = null;
+  private serverName: string;
 
-  constructor() {
+  constructor(serverName: string = "mcp-server") {
+    this.serverName = serverName;
     this.client = new Client(
       {
-        name: "agent-core",
+        name: `agent-client-${serverName}`,
         version: "1.0.0",
       },
       {
@@ -17,15 +25,15 @@ export class MCPManager {
     );
   }
 
-  async connect(serverPath: string) {
-    console.log(`Connecting to MCP Server at ${serverPath}...`);
+  async connect(command: string, args: string[]) {
+    console.log(`[MCP:${this.serverName}] Connecting...`);
     this.transport = new StdioClientTransport({
-      command: "python3",
-      args: [serverPath],
+      command,
+      args,
     });
 
     await this.client.connect(this.transport);
-    console.log("Connected to MCP Server");
+    console.log(`[MCP:${this.serverName}] Connected`);
   }
 
   async listTools() {
