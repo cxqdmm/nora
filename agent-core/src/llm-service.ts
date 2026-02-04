@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import { Logger } from './logger.js';
 
 dotenv.config();
 
@@ -36,10 +37,22 @@ export class LLMService {
       baseURL: baseURL,
     });
     
-    console.log(`[LLMService] Initialized with provider: ${provider}, model: ${this.model}`);
+    Logger.info("LLM", `Initialized with provider: ${provider}, model: ${this.model}`);
   }
 
   async chat(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], tools?: OpenAI.Chat.Completions.ChatCompletionTool[]) {
+    // Log messages
+    Logger.info("LLM", "Input Messages:");
+    messages.forEach((msg) => {
+      let contentPreview = "";
+      if (typeof msg.content === 'string') {
+        contentPreview = msg.content;
+      } else if (Array.isArray(msg.content)) {
+        contentPreview = "[Complex Content]";
+      }
+      Logger.llmMessage(msg.role, contentPreview);
+    });
+
     try {
       const response = await this.client.chat.completions.create({
         model: this.model,
@@ -49,8 +62,8 @@ export class LLMService {
       });
 
       return response.choices[0].message;
-    } catch (error) {
-      console.error("LLM Chat Error:", error);
+    } catch (error: any) {
+      Logger.error("LLM", `Chat Error: ${error.message}`);
       throw error;
     }
   }

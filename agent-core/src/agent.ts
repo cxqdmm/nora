@@ -2,6 +2,7 @@ import { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources
 import { LLMService } from './llm-service.js';
 import { MCPManager } from './mcp-manager.js';
 import { Planner, Plan } from './planner.js';
+import { Logger } from './logger.js';
 
 const SYSTEM_PROMPT = `
 You are an advanced AI Agent with access to a set of tools.
@@ -9,11 +10,24 @@ You are an advanced AI Agent with access to a set of tools.
 **Capabilities:**
 1. You can write and execute Python code (via \`execute_code\`) for calculation and data processing.
 2. You can perform filesystem operations (read/write/list) via provided tools.
+3. You have a **Long-term Memory** system. You can search, read, and store memories using \`search_memories\`, \`read_memory\`, and \`store_memory\`.
 
 **CRITICAL RULES:**
 1. **Python Execution**: ALWAYS use \`print(...)\` to output the final result.
 2. **Filesystem**: Use absolute paths or paths relative to the allowed root.
 3. **General**: Interpret tool outputs and provide a clear final answer.
+
+**MEMORY CONSOLIDATION POLICY (IMPORTANT):**
+At the end of every complex task or significant interaction, you MUST reflect on the conversation.
+Ask yourself: "Is there any high-value information here that I should remember for the future?"
+- **High-value information includes**: 
+    - Bug fixes and their root causes.
+    - User preferences (e.g., "I prefer TypeScript over JS").
+    - Successful code patterns or architectural decisions.
+    - Complex command sequences that worked.
+- If YES, you MUST use the \`store_memory\` tool to save a structured memory (Markdown format).
+- **Do not ask the user for permission to save**, just do it proactively if it's valuable.
+- After saving, inform the user: "I've saved this solution/preference to my long-term memory for future reference."
 
 **Interaction Style:**
 - Use the Planner's plan as a guide.
@@ -60,26 +74,26 @@ export class Agent {
           this.toolMap.set(tool.name, mcp);
         }
       } catch (e) {
-        console.error(`[Agent] Failed to list tools from one of the MCP servers:`, e);
+        Logger.error("Agent", `Failed to list tools from one of the MCP servers: ${e}`);
       }
     }
-    console.log(`[Agent] Initialized with tools: ${this.tools.map(t => t.function.name).join(', ')}`);
+    Logger.info("Agent", `Initialized with tools: ${this.tools.map(t => t.function.name).join(', ')}`);
   }
 
   async chat(userInput: string): Promise<string> {
     // 1. Plan Phase
-    console.log("\n--- Planning Phase ---");
+    Logger.info("Phase", "Planning");
     let plan: Plan | null = null;
     try {
       plan = await this.planner.createPlan(userInput);
-      console.log(`[Agent] Plan Generated: ${plan.reasoning}`);
-      plan.steps.forEach(step => console.log(`  - Step ${step.id}: ${step.description} [${step.tool || 'internal'}]`));
+      Logger.success("Plan", plan.reasoning);
+      plan.steps.forEach(step => Logger.info("Step", `${step.id}: ${step.description}`));
     } catch (e) {
-      console.warn("[Agent] Planning failed, falling back to direct execution.", e);
+      Logger.warn("Plan", "Planning failed, falling back to direct execution.");
     }
 
     // 2. Execution Phase
-    console.log("\n--- Execution Phase ---");
+    Logger.info("Phase", "Execution");
     
     // Inject Plan into Context
     if (plan) {
@@ -98,7 +112,7 @@ export class Agent {
 
     while (turnCount < MAX_TURNS) {
       turnCount++;
-      console.log(`[Agent] Thinking... (Turn ${turnCount})`);
+      Logger.info("Turn", `${turnCount} Thinking...`);
 
       const response = await this.llm.chat(this.history, this.tools);
       this.history.push(response);
@@ -106,13 +120,13 @@ export class Agent {
       // Check if LLM wants to call a tool
       if (response.tool_calls && response.tool_calls.length > 0) {
         for (const toolCall of response.tool_calls) {
-          console.log(`[Agent] Executing tool: ${toolCall.function.name}`);
+          Logger.info("Tool", `Executing: ${toolCall.function.name}`);
           
           let args;
           try {
             args = JSON.parse(toolCall.function.arguments);
           } catch (e) {
-            console.error(`[Agent] Failed to parse arguments for tool ${toolCall.function.name}`);
+            Logger.error("Tool", `Failed to parse arguments for ${toolCall.function.name}`);
             this.history.push({
               role: "tool",
               tool_call_id: toolCall.id,
@@ -121,10 +135,15 @@ export class Agent {
             continue;
           }
 
+          // Special Logging for execute_code
+          if (toolCall.function.name === 'execute_code' && args.code) {
+            Logger.code(args.code);
+          }
+
           // Find correct MCP manager for this tool
           const mcp = this.toolMap.get(toolCall.function.name);
           if (!mcp) {
-             console.error(`[Agent] Tool ${toolCall.function.name} not found in any MCP server.`);
+             Logger.error("Tool", `${toolCall.function.name} not found in any MCP server.`);
              this.history.push({
               role: "tool",
               tool_call_id: toolCall.id,
@@ -138,7 +157,8 @@ export class Agent {
             
             // Format output
             const contentText = toolResult.content.map(c => c.type === 'text' ? c.text : '').join("\n");
-            console.log(`[Agent] Tool Output:\n${contentText.trim().substring(0, 200)}${contentText.length > 200 ? '...' : ''}`);
+            
+            Logger.toolOutput(contentText);
 
             this.history.push({
               role: "tool",
@@ -146,7 +166,7 @@ export class Agent {
               content: contentText || "(Tool executed successfully with no text output)"
             });
           } catch (error: any) {
-            console.error(`[Agent] Tool execution failed: ${error.message}`);
+            Logger.error("Tool", `Execution failed: ${error.message}`);
             this.history.push({
               role: "tool",
               tool_call_id: toolCall.id,

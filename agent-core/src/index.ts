@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 
 // Server Configs
 const pythonServerPath = path.resolve(__dirname, "../../mcp-servers/python-sandbox/server.py");
+const memoryServicePath = path.resolve(__dirname, "../../mcp-servers/memory-service/dist/index.js");
 const allowedDir = path.resolve(__dirname, "../../workspace"); // Create a safe workspace dir
 
 function parseArgs(): { provider: LLMProvider } {
@@ -47,20 +48,22 @@ async function main() {
   // 2. Initialize MCP Managers
   const sandboxMcp = new MCPManager("python-sandbox");
   const fsMcp = new MCPManager("filesystem");
+  const memoryMcp = new MCPManager("memory-service");
 
   try {
     // 3. Connect to Servers
     await sandboxMcp.connect("python3", [pythonServerPath]);
     
-    // Connect to FS Server (using npx)
-    // Note: We need to ensure the workspace directory exists
+    // Connect to FS Server
     await import('fs').then(fs => fs.promises.mkdir(allowedDir, { recursive: true }));
     console.log(`[Setup] Filesystem workspace: ${allowedDir}`);
-    
     await fsMcp.connect("npx", ["-y", "@modelcontextprotocol/server-filesystem", allowedDir]);
 
+    // Connect to Memory Service
+    await memoryMcp.connect("node", [memoryServicePath]);
+
     // 4. Initialize Agent with ALL MCPs
-    const agent = new Agent([sandboxMcp, fsMcp], llm);
+    const agent = new Agent([sandboxMcp, fsMcp, memoryMcp], llm);
     await agent.initialize();
 
     // 5. Setup Interactive Loop
@@ -76,6 +79,7 @@ async function main() {
           rl.close();
           await sandboxMcp.close();
           await fsMcp.close();
+          await memoryMcp.close();
           process.exit(0);
         }
 
