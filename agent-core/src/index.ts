@@ -3,7 +3,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import readline from 'readline';
 import { MCPManager } from './mcp-manager.js';
-import { LLMService } from './llm-service.js';
+import { LLMService, LLMProvider } from './llm-service.js';
 import { Agent } from './agent.js';
 
 dotenv.config();
@@ -15,13 +15,34 @@ const __dirname = path.dirname(__filename);
 const pythonServerPath = path.resolve(__dirname, "../../mcp-servers/python-sandbox/server.py");
 const allowedDir = path.resolve(__dirname, "../../workspace"); // Create a safe workspace dir
 
+function parseArgs(): { provider: LLMProvider } {
+  const args = process.argv.slice(2);
+  let provider: LLMProvider = 'qwen'; // Default
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--provider' && args[i + 1]) {
+      const p = args[i + 1].toLowerCase();
+      if (p === 'qwen' || p === 'zhipu') {
+        provider = p as LLMProvider;
+      } else {
+        console.warn(`Unknown provider '${p}', using default 'qwen'. Supported: qwen, zhipu`);
+      }
+      i++;
+    }
+  }
+  return { provider };
+}
+
 async function main() {
   console.log('================================================');
   console.log('       Nora Agent System - Interactive CLI      ');
   console.log('================================================');
   
+  const { provider } = parseArgs();
+  console.log(`[Config] Selected LLM Provider: ${provider.toUpperCase()}`);
+
   // 1. Initialize Services
-  const llm = new LLMService();
+  const llm = new LLMService(provider);
 
   // 2. Initialize MCP Managers
   const sandboxMcp = new MCPManager("python-sandbox");
