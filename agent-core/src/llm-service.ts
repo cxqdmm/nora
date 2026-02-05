@@ -48,6 +48,34 @@ export class LLMService {
     Logger.info("LLM", `Initialized with provider: ${provider}, model: ${this.model}`);
   }
 
+  async simpleChat(prompt: string): Promise<string> {
+    try {
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'user', content: prompt }
+      ];
+      
+      const options: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+        model: this.model,
+        messages: messages,
+      };
+
+      if (this.provider === 'openrouter') {
+        (options as any).max_tokens = 4096;
+      }
+
+      const response = await this.client.chat.completions.create(options);
+      
+      if (response.usage) {
+        Logger.llmUsage(response.usage);
+      }
+
+      return response.choices[0].message.content || "";
+    } catch (error: any) {
+      Logger.error("LLM", `SimpleChat Error: ${error.message}`);
+      return "";
+    }
+  }
+
   async chat(
     messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], 
     tools?: OpenAI.Chat.Completions.ChatCompletionTool[],
@@ -68,12 +96,24 @@ export class LLMService {
     });
 
     try {
-      const response = await this.client.chat.completions.create({
+      const options: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
         model: this.model,
         messages: messages,
         tools: tools,
         tool_choice: toolChoice ? toolChoice : (tools ? "auto" : undefined),
-      });
+      };
+
+      if (this.provider === 'openrouter') {
+        // OpenRouter often needs explicit max_tokens to avoid "credit limit" errors
+        // assuming "you requested X tokens" refers to context window reservation
+        (options as any).max_tokens = 8192; 
+      }
+
+      const response = await this.client.chat.completions.create(options);
+
+      if (response.usage) {
+        Logger.llmUsage(response.usage);
+      }
 
       return response.choices[0].message;
     } catch (error: any) {

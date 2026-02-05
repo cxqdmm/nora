@@ -98,4 +98,13 @@ export class Logger {
     console.log(chalk.gray(`  [Usage] Prompt: ${prompt_tokens}, Completion: ${completion_tokens}, Total: ${total_tokens}`));
     this.broadcast({ type: 'llm-usage', usage });
   }
+
+  static contextUpdate(items: any[]) {
+    // Only broadcast to UI, no console log needed usually
+    this.broadcast({ type: 'context-update', items });
+  }
+
+  static historyStats(count: number, max: number) {
+    this.broadcast({ type: 'history-stats', count, max });
+  }
 }

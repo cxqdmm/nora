@@ -27,6 +27,8 @@ const MEMORYER_SYSTEM_PROMPT = `
 - 不要选择过多无关记忆，保持精简（通常 1-3 个最相关的即可）。
 `;
 
+import { MemoryManager } from './context-manager.js';
+
 export class Memoryer {
   private llm: LLMService;
 
@@ -34,7 +36,7 @@ export class Memoryer {
     this.llm = llm;
   }
 
-  async retrieve(userQuery: string, summaries: any[], memoryMcp: MCPManager): Promise<string> {
+  async retrieve(userQuery: string, summaries: any[], memoryMcp: MCPManager, memoryManager?: MemoryManager): Promise<string> {
     if (!summaries || summaries.length === 0) {
       return "没有找到任何相关记忆摘要。";
     }
@@ -78,12 +80,27 @@ export class Memoryer {
     for (const id of targetIds) {
       try {
         Logger.info("Memoryer", `Reading memory: ${id}`);
-        // Call read_memory tool
-        // Note: We assume the tool name is 'read_memory' and it takes 'id'
-        const result = await memoryMcp.callTool('read_memory', { id });
         
-        const text = result.content.map(c => c.type === 'text' ? c.text : '').join("\n");
-        contents.push(`--- Memory ID: ${id} ---\n${text}\n--- End of Memory ---`);
+        // Check if it's a short-term memory (based on summary metadata if available, or just try)
+        // We look up the summary object to check 'source'
+        const summary = summaries.find(s => s.id === id);
+        
+        if (summary && summary.source === 'short_term' && memoryManager) {
+           const content = await memoryManager.readShortTermMemory(id);
+           if (content) {
+             contents.push(`--- Short-Term Memory ID: ${id} ---\n${content}\n--- End of Memory ---`);
+           } else {
+             Logger.warn("Memoryer", `Short-term memory ${id} found in summary but content read failed.`);
+           }
+        } else {
+            // Default to Long-Term Memory (MCP)
+            // Call read_memory tool
+            // Note: We assume the tool name is 'read_memory' and it takes 'id'
+            const result = await memoryMcp.callTool('read_memory', { id });
+             
+             const text = (result as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+             contents.push(`--- Memory ID: ${id} ---\n${text}\n--- End of Memory ---`);
+        }
       } catch (e: any) {
         Logger.error("Memoryer", `Failed to read memory ${id}: ${e.message}`);
       }

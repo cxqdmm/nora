@@ -3,8 +3,8 @@ import { LLMService } from './llm-service.js';
 import { MCPManager } from './mcp-manager.js';
 import { Planner, Plan } from './planner.js';
 import { Logger } from './logger.js';
-
 import { Memoryer } from './memoryer.js';
+import { MemoryManager } from './context-manager.js';
 
 const SYSTEM_PROMPT = `
 你是一个拥有多种工具的高级 AI Agent。
@@ -43,7 +43,10 @@ export class Agent {
   private llm: LLMService;
   private planner: Planner;
   private memoryer: Memoryer;
+  private memoryManager: MemoryManager;
   private history: ChatCompletionMessageParam[] = [];
+  private readonly MAX_HISTORY_LENGTH = 30; // Increased limit
+  private readonly KEEP_RECENT_COUNT = 5; // Keep most recent 5 messages raw
   private tools: ChatCompletionTool[] = [];
   private toolMap: Map<string, MCPManager> = new Map();
 
@@ -52,6 +55,7 @@ export class Agent {
     this.llm = llm;
     this.planner = new Planner(llm);
     this.memoryer = new Memoryer(llm);
+    this.memoryManager = new MemoryManager(llm);
     
     // Initialize history with system prompt
     this.history.push({
@@ -64,6 +68,7 @@ export class Agent {
     this.tools = [];
     this.toolMap.clear();
 
+    // 1. Add MCP Tools
     for (const mcp of this.mcps) {
       try {
         const mcpTools = await mcp.listTools();
@@ -86,6 +91,9 @@ export class Agent {
   }
 
   async chat(userInput: string): Promise<string> {
+    // 0. Manage Memory (Consolidation) - Start of session
+    await this.memoryManager.consolidateMemory(this.history, this.MAX_HISTORY_LENGTH, this.KEEP_RECENT_COUNT);
+
     // 1. Plan Phase
     Logger.phase("Planning");
     
@@ -130,7 +138,30 @@ export class Agent {
       turnCount++;
       Logger.turn(turnCount, "Thinking...");
 
+      // Prune history inside the loop to prevent token overflow during long chains
+      // MUST be done before Context Injection to avoid messing up indices or keeping transient messages
+      await this.memoryManager.consolidateMemory(this.history, this.MAX_HISTORY_LENGTH, this.KEEP_RECENT_COUNT);
+
+      // --- DYNAMIC CONTEXT INJECTION ---
+      // We inject the working memory state as a ephemeral system message at the end of history
+      // or update the main system prompt. Here, appending a transient system message is safer.
+      const contextPrompt = this.memoryManager.getPrompt();
+      let contextMsgIndex = -1;
+      
+      if (contextPrompt) {
+        this.history.push({ role: "system", content: contextPrompt });
+        contextMsgIndex = this.history.length - 1;
+      }
+      // ---------------------------------
+
       const response = await this.llm.chat(this.history, this.tools);
+      
+      // Remove the transient context message so it doesn't pollute history permanently
+      // (The Agent "sees" it in this turn, but we re-inject fresh context next turn)
+      if (contextMsgIndex !== -1) {
+        this.history.splice(contextMsgIndex, 1);
+      }
+
       this.history.push(response);
 
       // Check if LLM wants to call a tool
@@ -151,19 +182,25 @@ export class Agent {
             continue;
           }
 
+          const toolName = (toolCall as any).function.name;
+
+          // --- HANDLE NATIVE TOOLS ---
+          // manage_context tool removed as it is now handled automatically
+          // ---------------------------
+
           // Special Logging for execute_code
-          if ((toolCall as any).function.name === 'execute_code' && args.code) {
+          if (toolName === 'execute_code' && args.code) {
             Logger.code(args.code);
           }
 
           // Find correct MCP manager for this tool
-          const mcp = this.toolMap.get((toolCall as any).function.name);
+          const mcp = this.toolMap.get(toolName);
           if (!mcp) {
-             Logger.error("Tool", `${(toolCall as any).function.name} not found in any MCP server.`);
+             Logger.error("Tool", `${toolName} not found in any MCP server.`);
              this.history.push({
               role: "tool",
               tool_call_id: toolCall.id,
-              content: `Error: Tool ${(toolCall as any).function.name} not found.`
+              content: `Error: Tool ${toolName} not found.`
             });
             continue;
           }
@@ -172,16 +209,36 @@ export class Agent {
             let contentText = "";
             
             // Intercept search_memories to use Memoryer for deep retrieval
-            if ((toolCall as any).function.name === 'search_memories') {
-               const rawResult = await mcp.callTool((toolCall as any).function.name, args);
-               const rawSummaries = rawResult.content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+            if (toolName === 'search_memories') {
+               const rawResult = await mcp.callTool(toolName, args);
+               const rawSummaries = (rawResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
                
                try {
-                 const summaries = JSON.parse(rawSummaries);
+                 let summaries: any[] = [];
+                 try {
+                    summaries = JSON.parse(rawSummaries);
+                    if (!Array.isArray(summaries)) summaries = [];
+                    // Mark as long_term
+                    summaries = summaries.map(s => ({ ...s, source: 'long_term' }));
+                 } catch (e) {
+                    // rawSummaries might not be JSON if tool failed or returned text
+                    Logger.warn("Agent", "search_memories returned non-JSON");
+                 }
+
+                 // Fetch Short-Term Summaries
+                 try {
+                    const shortTerm = await this.memoryManager.getShortTermSummaries();
+                    // No client-side filtering; let LLM decide relevance
+                    summaries = [...summaries, ...shortTerm];
+                    Logger.info("Agent", `Merged memory summaries: ${summaries.length} items.`);
+                 } catch (e) {
+                    Logger.error("Agent", `Failed to load short-term memories: ${e}`);
+                 }
+
                  // Call Memoryer to refine and fetch details
                  const readMemoryMcp = this.toolMap.get('read_memory');
                  if (readMemoryMcp) {
-                   contentText = await this.memoryer.retrieve(args.query || "", summaries, readMemoryMcp);
+                   contentText = await this.memoryer.retrieve(args.query || "", summaries, readMemoryMcp, this.memoryManager);
                  } else {
                    contentText = rawSummaries; // Fallback if read_memory not found
                  }
@@ -191,8 +248,8 @@ export class Agent {
                }
 
             } else {
-               const toolResult = await mcp.callTool((toolCall as any).function.name, args);
-               contentText = toolResult.content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+               const toolResult = await mcp.callTool(toolName, args);
+               contentText = (toolResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
             }
             
             Logger.toolOutput(contentText);

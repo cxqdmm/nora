@@ -65,13 +65,74 @@
         .status-connected { color: var(--accent-green); background: rgba(152, 195, 121, 0.1); }
         .status-disconnected { color: var(--accent-red); background: rgba(224, 108, 117, 0.1); }
 
-        /* Main Container */
-        #log-stream {
+        /* Main Layout */
+        #main-layout {
+            display: flex;
             margin-top: 40px;
+            height: calc(100vh - 40px);
+        }
+
+        #log-stream {
+            flex: 1;
             padding: 20px;
-            max-width: 1200px;
-            margin-left: auto;
-            margin-right: auto;
+            overflow-y: auto;
+            border-right: 1px solid var(--border-color);
+        }
+
+        #context-panel {
+            width: 300px;
+            background: var(--panel-bg);
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .context-header {
+            padding: 10px 15px;
+            background: #2c2c2d;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: bold;
+            color: var(--accent-yellow);
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        #context-list {
+            padding: 10px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .context-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-left: 2px solid var(--accent-blue);
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 0 4px 4px 0;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+        
+        .context-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+
+        .context-source {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+
+        .context-empty {
+            color: var(--text-secondary);
+            font-style: italic;
+            text-align: center;
+            margin-top: 20px;
         }
 
         /* Log Entries */
@@ -348,12 +409,24 @@
     <div id="status" class="status-badge status-disconnected">Waiting...</div>
 </div>
 
-<div id="log-stream">
-    <!-- Logs will appear here -->
+<div id="main-layout">
+    <div id="log-stream">
+        <!-- Logs will appear here -->
+    </div>
+    <div id="context-panel">
+        <div class="context-header">
+            WORKING MEMORY
+            <span id="history-stats" style="float: right; font-size: 0.8em; color: #888;"></span>
+        </div>
+        <div id="context-list">
+            <div class="context-empty">No active context</div>
+        </div>
+    </div>
 </div>
 
 <script>
     const stream = document.getElementById('log-stream');
+    const contextList = document.getElementById('context-list');
     const statusEl = document.getElementById('status');
     let socket;
 
@@ -478,6 +551,10 @@
                 `;
                 break;
 
+            case 'context-update':
+                updateContextPanel(log.items);
+                break;
+
             default: // info, success, warn, error
                 if (log.prefix) {
                     const prefixSpan = document.createElement('span');
@@ -505,6 +582,28 @@
         return text.replace(/[&<>"']/g, function(m) { return map[m]; });
     }
 
+    function updateContextPanel(items) {
+        contextList.innerHTML = '';
+        
+        if (!items || items.length === 0) {
+            contextList.innerHTML = '<div class="context-empty">No active context</div>';
+            return;
+        }
+
+        items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'context-item';
+            div.innerHTML = `
+                <div class="context-meta">
+                    <span class="context-source">${item.source || 'unknown'}</span>
+                    <span class="context-time">${formatTime(new Date(item.timestamp))}</span>
+                </div>
+                <div class="context-content">${escapeHtml(item.content)}</div>
+            `;
+            contextList.appendChild(div);
+        });
+    }
+
     function connect() {
         socket = new WebSocket('ws://localhost:3000');
 
@@ -523,6 +622,16 @@
         socket.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
+                
+                // Handle history stats (no log entry)
+                if (data.type === 'history-stats') {
+                    const statsEl = document.getElementById('history-stats');
+                    if (statsEl) {
+                        statsEl.textContent = `History: ${data.count}/${data.max}`;
+                    }
+                    return;
+                }
+
                 const el = createEntry(data);
                 stream.appendChild(el);
                 window.scrollTo(0, document.body.scrollHeight);
