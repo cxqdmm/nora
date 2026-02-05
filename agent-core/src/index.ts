@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 
 // Server Configs
 const pythonServerPath = path.resolve(__dirname, "../../mcp-servers/python-sandbox/server.py");
-const memoryServicePath = path.resolve(__dirname, "../../mcp-servers/memory-service/dist/index.js");
+const memoryServicePath = path.resolve(__dirname, "../../mcp-servers/memory-service/src/index.ts");
 const allowedDir = path.resolve(__dirname, "../../workspace"); // Create a safe workspace dir
 
 function parseArgs(): { provider: LLMProvider } {
@@ -67,7 +67,7 @@ async function main() {
     await fsMcp.connect("npx", ["-y", "@modelcontextprotocol/server-filesystem", allowedDir]);
 
     // Connect to Memory Service
-    await memoryMcp.connect("node", [memoryServicePath]);
+    await memoryMcp.connect("npx", ["-y", "tsx", memoryServicePath]);
 
     // 4. Initialize Agent with ALL MCPs
     const agent = new Agent([sandboxMcp, fsMcp, memoryMcp], llm);

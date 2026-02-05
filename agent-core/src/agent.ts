@@ -212,7 +212,6 @@ export class Agent {
             if (toolName === 'search_memories') {
                const rawResult = await mcp.callTool(toolName, args);
                const rawSummaries = (rawResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
-               
                try {
                  let summaries: any[] = [];
                  try {

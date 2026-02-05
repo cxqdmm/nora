@@ -19,7 +19,7 @@ const PLANNER_SYSTEM_PROMPT = `
 
 **可用工具：**
 - \`execute_code\`：运行 Python 代码进行计算、数据处理或逻辑运算。
-- \`search_memories\`：搜索长期记忆库（支持关键词匹配）。
+- \`search_memories\`：搜索长期记忆库。
 - \`read_memory\`：读取具体记忆内容的详细信息。
 - \`store_memory\`：存储新的重要记忆。
 - \`read_file\` / \`write_file\` / \`list_directory\`：文件系统操作。
@@ -63,7 +63,10 @@ export class Planner {
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: PLANNER_SYSTEM_PROMPT },
       ...contextMessages,
-      { role: "user", content: `为以下目标制定计划: "${userGoal}"` }
+      { 
+        role: "user", 
+        content: `用户当前的输入是: "${userGoal}"\n\n请根据上述上下文和用户输入，判断这是否需要一个复杂的执行计划。如果需要，请制定详细的执行步骤；如果这是一个简单的交互（如问候、澄清、单一问题），请返回空步骤列表。` 
+      }
     ];
 
     console.log(`[Planner] Creating plan for: "${userGoal}"`);
