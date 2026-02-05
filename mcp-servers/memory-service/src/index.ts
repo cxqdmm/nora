@@ -43,13 +43,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: [
       {
         name: TOOLS.SEARCH_MEMORIES,
-        description: "Search long-term memory summaries using keywords. Returns a list of relevant memory summaries.",
+        description: "Search long-term memory using natural language queries. It will retrieve relevant memory summaries based on semantics.",
         inputSchema: {
           type: "object",
           properties: {
             query: {
               type: "string",
-              description: "Keywords to filter memories (e.g., 'react performance', 'auth bug')",
+              description: "Natural language query describing what you are looking for (e.g., 'Where did I put the marbles?', 'How to fix the auth bug'). Do NOT extract keywords.",
             },
             limit: {
               type: "number",
