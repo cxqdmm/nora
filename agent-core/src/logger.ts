@@ -5,6 +5,26 @@ export class Logger {
     console.log(`${chalk.blue.bold(`[${prefix}]`)} ${message}`);
   }
 
+  static phase(phaseName: string) {
+    console.log(chalk.blue.bold(`\n=== Phase: ${phaseName} ===`));
+  }
+
+  static turn(count: number, status: string) {
+    console.log(chalk.cyan.bold(`\n--- Turn ${count}: ${status} ---`));
+  }
+
+  static toolCall(toolName: string, args: any) {
+    console.log(`${chalk.magenta.bold(`[Tool]`)} ${chalk.green.bold(toolName)} ${chalk.gray(JSON.stringify(args))}`);
+  }
+
+  static plan(reasoning: string) {
+    console.log(`${chalk.yellow.bold(`[Plan]`)} ${chalk.italic(reasoning)}`);
+  }
+
+  static step(id: number, description: string) {
+    console.log(`  ${chalk.yellow.bold(`[Step ${id}]`)} ${description}`);
+  }
+
   static success(prefix: string, message: string) {
     console.log(`${chalk.green.bold(`[${prefix}]`)} ${message}`);
   }

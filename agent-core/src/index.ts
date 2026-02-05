@@ -21,7 +21,7 @@ function parseArgs(): { provider: LLMProvider } {
   let provider: LLMProvider = 'qwen'; // Default
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--provider' && args[i + 1]) {
+    if ((args[i] === '--provider' || args[i] === '--p') && args[i + 1]) {
       const p = args[i + 1].toLowerCase();
       if (p === 'qwen' || p === 'zhipu') {
         provider = p as LLMProvider;

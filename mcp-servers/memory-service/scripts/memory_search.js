@@ -30,7 +30,8 @@ function main() {
     
     const summary = summarizeFromFrontmatter(frontmatter, file);
     
-    // 如果传了 query，则做简单过滤（name/description/tags/files/type 拼起来做包含匹配）
+    // 暂时禁用 Query 过滤，返回全量记忆，由 Agent 自行筛选
+    /*
     if (query) {
       const text = [
         summary.name || '',
@@ -40,10 +41,14 @@ function main() {
         summary.type || ''
       ].join(' ').toLowerCase();
       
-      if (!text.includes(query)) {
+      const keywords = query.split(/\s+/).filter(Boolean);
+      const isMatch = keywords.some(k => text.includes(k));
+
+      if (!isMatch) {
         continue;
       }
     }
+    */
     
     summaries.push(summary);
   }

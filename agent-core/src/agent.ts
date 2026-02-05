@@ -4,6 +4,8 @@ import { MCPManager } from './mcp-manager.js';
 import { Planner, Plan } from './planner.js';
 import { Logger } from './logger.js';
 
+import { Memoryer } from './memoryer.js';
+
 const SYSTEM_PROMPT = `
 你是一个拥有多种工具的高级 AI Agent。
 
@@ -11,6 +13,7 @@ const SYSTEM_PROMPT = `
 1. 你可以编写并执行 Python 代码（通过 \`execute_code\`）进行计算和数据处理。
 2. 你可以通过提供的工具执行文件系统操作（读取/写入/列出）。
 3. 你拥有**长期记忆**系统。你可以使用 \`search_memories\`、\`read_memory\` 和 \`store_memory\` 来搜索、读取和存储记忆。
+   - 当用户询问模糊的、过去的或你需要回忆的信息时，**必须**优先使用 \`search_memories\`。
 
 **关键规则：**
 1. **Python 执行**：必须始终使用 \`print(...)\` 输出最终结果。
@@ -39,6 +42,7 @@ export class Agent {
   private mcps: MCPManager[];
   private llm: LLMService;
   private planner: Planner;
+  private memoryer: Memoryer;
   private history: ChatCompletionMessageParam[] = [];
   private tools: ChatCompletionTool[] = [];
   private toolMap: Map<string, MCPManager> = new Map();
@@ -47,6 +51,7 @@ export class Agent {
     this.mcps = mcps;
     this.llm = llm;
     this.planner = new Planner(llm);
+    this.memoryer = new Memoryer(llm);
     
     // Initialize history with system prompt
     this.history.push({
@@ -82,21 +87,27 @@ export class Agent {
 
   async chat(userInput: string): Promise<string> {
     // 1. Plan Phase
-    Logger.info("Phase", "Planning");
+    Logger.phase("Planning");
     let plan: Plan | null = null;
     try {
       plan = await this.planner.createPlan(userInput, this.history);
-      Logger.success("Plan", plan.reasoning);
-      plan.steps.forEach(step => Logger.info("Step", `${step.id}: ${step.description}`));
+      
+      if (plan.steps && plan.steps.length > 0) {
+        Logger.plan(plan.reasoning);
+        plan.steps.forEach(step => Logger.step(step.id, step.description));
+      } else {
+        Logger.plan(`No complex plan needed: ${plan.reasoning}`);
+      }
+      
     } catch (e) {
       Logger.warn("Plan", "Planning failed, falling back to direct execution.");
     }
 
     // 2. Execution Phase
-    Logger.info("Phase", "Execution");
+    Logger.phase("Execution");
     
     // Inject Plan into Context
-    if (plan) {
+    if (plan && plan.steps && plan.steps.length > 0) {
       this.history.push({
         role: "system",
         content: `当前计划:\n${JSON.stringify(plan.steps, null, 2)}\n\n请按顺序执行这些步骤以回答用户请求。`
@@ -112,7 +123,7 @@ export class Agent {
 
     while (turnCount < MAX_TURNS) {
       turnCount++;
-      Logger.info("Turn", `${turnCount} Thinking...`);
+      Logger.turn(turnCount, "Thinking...");
 
       const response = await this.llm.chat(this.history, this.tools);
       this.history.push(response);
@@ -120,12 +131,11 @@ export class Agent {
       // Check if LLM wants to call a tool
       if (response.tool_calls && response.tool_calls.length > 0) {
         for (const toolCall of response.tool_calls) {
-          Logger.info("Tool", `Executing: ${(toolCall as any).function.name}`);
           
           let args;
           try {
             args = JSON.parse((toolCall as any).function.arguments);
-            Logger.info("Args", JSON.stringify(args));
+            Logger.toolCall((toolCall as any).function.name, args);
           } catch (e) {
             Logger.error("Tool", `Failed to parse arguments for ${(toolCall as any).function.name}`);
             this.history.push({
@@ -154,10 +164,31 @@ export class Agent {
           }
 
           try {
-            const toolResult = await mcp.callTool((toolCall as any).function.name, args);
+            let contentText = "";
             
-            // Format output
-            const contentText = toolResult.content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+            // Intercept search_memories to use Memoryer for deep retrieval
+            if ((toolCall as any).function.name === 'search_memories') {
+               const rawResult = await mcp.callTool((toolCall as any).function.name, args);
+               const rawSummaries = rawResult.content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+               
+               try {
+                 const summaries = JSON.parse(rawSummaries);
+                 // Call Memoryer to refine and fetch details
+                 const readMemoryMcp = this.toolMap.get('read_memory');
+                 if (readMemoryMcp) {
+                   contentText = await this.memoryer.retrieve(args.query || "", summaries, readMemoryMcp);
+                 } else {
+                   contentText = rawSummaries; // Fallback if read_memory not found
+                 }
+               } catch (e) {
+                 // If parsing fails (maybe empty or error), just return raw
+                 contentText = rawSummaries;
+               }
+
+            } else {
+               const toolResult = await mcp.callTool((toolCall as any).function.name, args);
+               contentText = toolResult.content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+            }
             
             Logger.toolOutput(contentText);
 
