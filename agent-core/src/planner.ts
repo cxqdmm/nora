@@ -14,20 +14,20 @@ export interface Plan {
 }
 
 const PLANNER_SYSTEM_PROMPT = `
-You are a strategic Planner Agent. Your goal is to break down complex user requests into a sequence of executable steps.
+你是一个战略规划 Agent。你的目标是将复杂的用户请求分解为一系列可执行的步骤。
 
-**Available Tools:**
-- \`execute_code\`: Run Python code for calculation, data processing, or logic.
+**可用工具：**
+- \`execute_code\`：运行 Python 代码进行计算、数据处理或逻辑运算。
 
-**Output Format:**
-You must output a valid JSON object with the following structure:
+**输出格式：**
+你必须输出一个符合以下结构的有效 JSON 对象：
 \`\`\`json
 {
-  "reasoning": "Explanation of the plan strategy...",
+  "reasoning": "计划策略的解释...",
   "steps": [
     {
       "id": 1,
-      "description": "Step description...",
+      "description": "步骤描述...",
       "tool": "execute_code"
     },
     ...
@@ -35,11 +35,11 @@ You must output a valid JSON object with the following structure:
 }
 \`\`\`
 
-**Rules:**
-1. Keep steps atomic and clear.
-2. Ensure logical order (dependencies are implicit in the sequence for now).
-3. If the user request is simple (single step), return a plan with just one step.
-4. Do NOT execute the steps yourself, just plan them.
+**规则：**
+1. 保持步骤原子化且清晰。
+2. 确保逻辑顺序（依赖关系隐含在顺序中）。
+3. 如果用户请求很简单（单一步骤），则返回仅包含一个步骤的计划。
+4. 不要自己执行步骤，只负责规划。
 `;
 
 export class Planner {
@@ -49,10 +49,14 @@ export class Planner {
     this.llm = llm;
   }
 
-  async createPlan(userGoal: string): Promise<Plan> {
+  async createPlan(userGoal: string, history: ChatCompletionMessageParam[] = []): Promise<Plan> {
+    // Filter out system messages from history to avoid conflicting instructions
+    const contextMessages = history.filter(msg => msg.role !== 'system');
+
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: PLANNER_SYSTEM_PROMPT },
-      { role: "user", content: `Create a plan for: "${userGoal}"` }
+      ...contextMessages,
+      { role: "user", content: `为以下目标制定计划: "${userGoal}"` }
     ];
 
     console.log(`[Planner] Creating plan for: "${userGoal}"`);
