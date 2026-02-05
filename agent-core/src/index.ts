@@ -25,10 +25,10 @@ function parseArgs(): { provider: LLMProvider } {
   for (let i = 0; i < args.length; i++) {
     if ((args[i] === '--provider' || args[i] === '--p') && args[i + 1]) {
       const p = args[i + 1].toLowerCase();
-      if (p === 'qwen' || p === 'zhipu') {
+      if (p === 'qwen' || p === 'zhipu' || p === 'kimi' || p === 'openrouter') {
         provider = p as LLMProvider;
       } else {
-        console.warn(`Unknown provider '${p}', using default 'qwen'. Supported: qwen, zhipu`);
+        console.warn(`Unknown provider '${p}', using default 'qwen'. Supported: qwen, zhipu, kimi, openrouter`);
       }
       i++;
     }
@@ -93,7 +93,7 @@ async function main() {
 
         try {
           const response = await agent.chat(input);
-          console.log(`\nAgent: ${response}`);
+          Logger.finalAnswer(response);
         } catch (error) {
           console.error("Error processing request:", error);
         }

@@ -131,7 +131,13 @@
 
         /* Tools */
         .entry.tool .content {
-            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .tool-header {
+            display: flex;
+            align-items: center;
         }
         .badge-tool {
             display: inline-block;
@@ -142,6 +148,7 @@
             font-weight: bold;
             margin-right: 8px;
             border: 1px solid rgba(198, 120, 221, 0.3);
+            font-size: 11px;
         }
         .tool-name {
             color: var(--accent-purple);
@@ -150,6 +157,12 @@
         .tool-args {
             color: var(--text-secondary);
             font-size: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 2px solid var(--accent-purple);
+            font-family: var(--font-mono);
+            white-space: pre-wrap;
         }
 
         /* Plan */
@@ -268,6 +281,55 @@
             opacity: 0.8;
         }
 
+        /* Final Answer */
+        .entry.final-answer {
+            margin-top: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--accent-green);
+            background: rgba(152, 195, 121, 0.1);
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .entry.final-answer .content {
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        .final-answer-label {
+            color: var(--accent-green);
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: block;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Token Usage */
+        .entry.usage {
+            margin-top: 5px;
+            margin-bottom: 5px;
+            font-size: 11px;
+        }
+        .usage-badge {
+            background: rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-right: 10px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+        .usage-item {
+            color: var(--text-secondary);
+            margin-right: 12px;
+        }
+        .usage-item strong {
+            color: var(--accent-cyan);
+        }
+        .usage-item.total strong {
+            color: var(--accent-yellow);
+        }
+
         /* Utils */
         .dim { opacity: 0.6; }
         
@@ -344,9 +406,11 @@
 
             case 'tool':
                 content.innerHTML = `
-                    <span class="badge-tool">TOOL CALL</span>
-                    <span class="tool-name">${log.name}</span>
-                    <span class="tool-args">${JSON.stringify(log.args, null, 2)}</span>
+                    <div class="tool-header">
+                        <span class="badge-tool">TOOL CALL</span>
+                        <span class="tool-name">${log.name}</span>
+                    </div>
+                    <div class="tool-args">${JSON.stringify(log.args, null, 2)}</div>
                 `;
                 break;
             
@@ -395,6 +459,23 @@
 
             case 'code':
                 content.textContent = log.message;
+                break;
+
+            case 'final-answer':
+                content.innerHTML = `
+                    <span class="final-answer-label">Final Answer</span>
+                    <div>${escapeHtml(log.message)}</div>
+                `;
+                break;
+
+            case 'llm-usage':
+                div.className = 'entry usage';
+                content.innerHTML = `
+                    <span class="usage-badge">TOKEN USAGE</span>
+                    <span class="usage-item">Prompt: <strong>${log.usage.prompt_tokens}</strong></span>
+                    <span class="usage-item">Completion: <strong>${log.usage.completion_tokens}</strong></span>
+                    <span class="usage-item total">Total: <strong>${log.usage.total_tokens}</strong></span>
+                `;
                 break;
 
             default: // info, success, warn, error

@@ -86,4 +86,16 @@ export class Logger {
     console.log(chalk.dim(truncated));
     this.broadcast({ type: 'info', prefix: 'ToolOutput', message: content });
   }
+
+  static finalAnswer(content: string) {
+    console.log(`\n${chalk.green.bold('Agent:')} ${content}`);
+    this.broadcast({ type: 'final-answer', message: content });
+  }
+
+  static llmUsage(usage: any) {
+    if (!usage) return;
+    const { prompt_tokens, completion_tokens, total_tokens } = usage;
+    console.log(chalk.gray(`  [Usage] Prompt: ${prompt_tokens}, Completion: ${completion_tokens}, Total: ${total_tokens}`));
+    this.broadcast({ type: 'llm-usage', usage });
+  }
 }

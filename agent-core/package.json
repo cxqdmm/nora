@@ -5,6 +5,10 @@
   "main": "index.js",
   "scripts": {
     "start": "tsx src/index.ts",
+    "start:kimi": "tsx src/index.ts --p kimi",
+    "start:zhipu": "tsx src/index.ts --p zhipu",
+    "start:qwen": "tsx src/index.ts --p qwen",
+    "start:openrouter": "tsx src/index.ts --p openrouter",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
