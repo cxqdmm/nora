@@ -40,9 +40,15 @@ export class LLMService {
     Logger.info("LLM", `Initialized with provider: ${provider}, model: ${this.model}`);
   }
 
-  async chat(messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], tools?: OpenAI.Chat.Completions.ChatCompletionTool[]) {
+  async chat(
+    messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], 
+    tools?: OpenAI.Chat.Completions.ChatCompletionTool[],
+    toolChoice?: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption
+  ) {
     // Log messages
-    Logger.info("LLM", "Input Messages:");
+    Logger.llmInput(messages);
+    
+    // Console log for debugging (truncated)
     messages.forEach((msg) => {
       let contentPreview = "";
       if (typeof msg.content === 'string') {
@@ -58,7 +64,7 @@ export class LLMService {
         model: this.model,
         messages: messages,
         tools: tools,
-        tool_choice: tools ? "auto" : undefined,
+        tool_choice: toolChoice ? toolChoice : (tools ? "auto" : undefined),
       });
 
       return response.choices[0].message;

@@ -1,5 +1,6 @@
+import { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
 import { LLMService } from './llm-service.js';
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import { MCPManager } from './mcp-manager.js';
 
 export interface PlanStep {
   id: number;
@@ -18,6 +19,10 @@ const PLANNER_SYSTEM_PROMPT = `
 
 **可用工具：**
 - \`execute_code\`：运行 Python 代码进行计算、数据处理或逻辑运算。
+- \`search_memories\`：搜索长期记忆库（支持关键词匹配）。
+- \`read_memory\`：读取具体记忆内容的详细信息。
+- \`store_memory\`：存储新的重要记忆。
+- \`read_file\` / \`write_file\` / \`list_directory\`：文件系统操作。
 
 **输出格式：**
 你必须输出一个符合以下结构的有效 JSON 对象：
@@ -51,7 +56,7 @@ export class Planner {
     this.llm = llm;
   }
 
-  async createPlan(userGoal: string, history: ChatCompletionMessageParam[] = []): Promise<Plan> {
+  async createPlan(userGoal: string, history: ChatCompletionMessageParam[] = [], tools: ChatCompletionTool[] = []): Promise<Plan> {
     // Filter out system messages from history to avoid conflicting instructions
     const contextMessages = history.filter(msg => msg.role !== 'system');
 
@@ -63,9 +68,9 @@ export class Planner {
 
     console.log(`[Planner] Creating plan for: "${userGoal}"`);
     
-    // We force JSON mode via prompt engineering (and potentially response_format if supported by model/provider)
-    // Qwen/OpenAI compatible usually supports prompt-based JSON enforcement well.
-    const response = await this.llm.chat(messages);
+    // Pass tools to LLM but force tool_choice to "none" to ensure we get a JSON plan, not a tool call
+    // However, providing tools allows the LLM to understand what capabilities are available.
+    const response = await this.llm.chat(messages, tools, "none");
     
     const content = response.content || "{}";
     

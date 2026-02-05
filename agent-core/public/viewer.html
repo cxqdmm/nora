@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nora Agent Live Inspector</title>
+    <style>
+        :root {
+            --bg-color: #1e1e1e;
+            --panel-bg: #252526;
+            --border-color: #3e3e42;
+            --text-primary: #d4d4d4;
+            --text-secondary: #858585;
+            --accent-blue: #61afef;
+            --accent-green: #98c379;
+            --accent-yellow: #e5c07b;
+            --accent-red: #e06c75;
+            --accent-purple: #c678dd;
+            --accent-cyan: #56b6c2;
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+        }
+
+        body {
+            font-family: var(--font-mono);
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            font-size: 13px;
+            line-height: 1.6;
+            overflow-y: scroll;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header-title {
+            font-weight: 600;
+            color: var(--accent-blue);
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #333;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .status-connected { color: var(--accent-green); background: rgba(152, 195, 121, 0.1); }
+        .status-disconnected { color: var(--accent-red); background: rgba(224, 108, 117, 0.1); }
+
+        /* Main Container */
+        #log-stream {
+            margin-top: 40px;
+            padding: 20px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Log Entries */
+        .entry {
+            display: flex;
+            gap: 15px;
+            padding: 4px 0;
+            border-left: 2px solid transparent;
+            margin-bottom: 2px;
+        }
+
+        .entry:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .ts {
+            flex-shrink: 0;
+            width: 80px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            text-align: right;
+            user-select: none;
+        }
+
+        .content {
+            flex-grow: 1;
+            word-wrap: break-word;
+            white-space: pre-wrap;
+        }
+
+        /* Phases */
+        .entry.phase {
+            margin-top: 30px;
+            margin-bottom: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .entry.phase .content {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Turns */
+        .entry.turn {
+            margin-top: 20px;
+            margin-bottom: 5px;
+        }
+        .entry.turn .content {
+            color: var(--accent-cyan);
+            font-weight: bold;
+            border-left: 3px solid var(--accent-cyan);
+            padding-left: 10px;
+        }
+
+        /* Tools */
+        .entry.tool .content {
+            color: var(--text-primary);
+        }
+        .badge-tool {
+            display: inline-block;
+            background: rgba(198, 120, 221, 0.15);
+            color: var(--accent-purple);
+            padding: 0 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-right: 8px;
+            border: 1px solid rgba(198, 120, 221, 0.3);
+        }
+        .tool-name {
+            color: var(--accent-purple);
+            font-weight: bold;
+        }
+        .tool-args {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        /* Plan */
+        .entry.plan {
+            background: rgba(229, 192, 123, 0.05);
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-yellow);
+            margin: 5px 0 5px 95px; /* Offset to align with content */
+        }
+        .entry.plan .ts { display: none; } /* Hide timestamp for internal plan block */
+        .plan-label {
+            display: block;
+            color: var(--accent-yellow);
+            font-weight: bold;
+            margin-bottom: 4px;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .plan-reasoning {
+            color: var(--text-primary);
+            font-style: italic;
+        }
+
+        /* Step */
+        .entry.step .content {
+            padding-left: 20px;
+            color: var(--accent-green);
+        }
+        .step-id {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        /* LLM Messages */
+        .entry.llm .content {
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.2);
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        /* LLM Input Group */
+        .entry.llm-input .llm-input-summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--accent-purple);
+            user-select: none;
+        }
+        .entry.llm-input .llm-input-summary:hover {
+            color: var(--text-primary);
+        }
+        .entry.llm-input .badge-llm {
+            background: rgba(198, 120, 221, 0.15);
+            color: var(--accent-purple);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 11px;
+            margin-right: 8px;
+        }
+        .entry.llm-input .llm-input-details {
+            margin-top: 10px;
+            padding-left: 10px;
+            border-left: 2px solid var(--border-color);
+        }
+        .entry.llm-input .llm-input-details.collapsed {
+            display: none;
+        }
+        .llm-message-item {
+            margin-bottom: 15px;
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .message-content {
+            white-space: pre-wrap;
+            font-size: 12px;
+            color: var(--text-secondary);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .role-tag {
+            display: inline-block;
+            text-transform: uppercase;
+            font-size: 10px;
+            font-weight: bold;
+            margin-bottom: 4px;
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
+        .role-system { color: #abb2bf; border: 1px solid #5c6370; }
+        .role-user { color: var(--accent-blue); border: 1px solid var(--accent-blue); }
+        .role-assistant { color: var(--accent-green); border: 1px solid var(--accent-green); }
+
+        /* Code Blocks */
+        .entry.code .content {
+            background: #141414;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: var(--font-mono);
+            color: var(--accent-yellow);
+            overflow-x: auto;
+        }
+
+        /* Standard Logs */
+        .entry.info .content { color: var(--text-primary); }
+        .entry.success .content { color: var(--accent-green); }
+        .entry.warn .content { color: var(--accent-yellow); }
+        .entry.error .content { color: var(--accent-red); }
+        .log-prefix {
+            font-weight: bold;
+            margin-right: 8px;
+            opacity: 0.8;
+        }
+
+        /* Utils */
+        .dim { opacity: 0.6; }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="header-title">NORA AGENT INSPECTOR</div>
+    <div id="status" class="status-badge status-disconnected">Waiting...</div>
+</div>
+
+<div id="log-stream">
+    <!-- Logs will appear here -->
+</div>
+
+<script>
+    const stream = document.getElementById('log-stream');
+    const statusEl = document.getElementById('status');
+    let socket;
+
+    function formatTime(isoString) {
+        const d = new Date(isoString);
+        return d.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' }) + 
+               '.' + String(d.getMilliseconds()).padStart(3, '0');
+    }
+
+    function createEntry(log) {
+        const div = document.createElement('div');
+        div.className = `entry ${log.type}`;
+
+        // Timestamp
+        const ts = document.createElement('div');
+        ts.className = 'ts';
+        ts.textContent = formatTime(log.timestamp);
+        
+        // Content Container
+        const content = document.createElement('div');
+        content.className = 'content';
+
+        // Custom Rendering based on type
+        switch (log.type) {
+            case 'phase':
+                // Clean up the message "=== Phase: Planning ===" -> "Planning Phase"
+                const phaseName = log.message.replace(/=== Phase: (.*?) ===/, '$1').trim();
+                content.innerHTML = `<span>${phaseName}</span>`;
+                break;
+
+            case 'turn':
+                // Clean up "--- Turn 1: Thinking... ---" -> "Turn 1: Thinking..."
+                content.textContent = log.message.replace(/--- (.*?) ---/, '$1');
+                break;
+
+            case 'plan':
+                // Special Card Layout for Plan
+                div.className = 'entry plan';
+                content.innerHTML = `
+                    <span class="plan-label">Plan Strategy (Output)</span>
+                    <div class="plan-reasoning">${log.message}</div>
+                `;
+                // Plan entries are usually attached to a previous context, so we might want to hide timestamp or keep it
+                // Based on CSS, TS is hidden for .plan
+                break;
+
+            case 'step':
+                content.innerHTML = `<span class="step-id">Step ${log.id}:</span> ${log.message}`;
+                break;
+
+            case 'tool':
+                content.innerHTML = `
+                    <span class="badge-tool">TOOL CALL</span>
+                    <span class="tool-name">${log.name}</span>
+                    <span class="tool-args">${JSON.stringify(log.args, null, 2)}</span>
+                `;
+                break;
+            
+            case 'llm':
+                const roleClass = `role-${log.role}`;
+                content.innerHTML = `
+                    <div class="role-tag ${roleClass}">${log.role}</div>
+                    <div>${escapeHtml(log.message)}</div>
+                `;
+                break;
+
+            case 'llm-input':
+                // Collapsible container for multiple messages
+                div.className = 'entry llm-input';
+                
+                const summary = document.createElement('div');
+                summary.className = 'llm-input-summary';
+                summary.innerHTML = `<span class="toggle-icon">▶</span> <span class="badge-llm">LLM INPUT</span> ${log.messages.length} Messages`;
+                
+                const details = document.createElement('div');
+                details.className = 'llm-input-details collapsed';
+                
+                log.messages.forEach(msg => {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'llm-message-item';
+                    const roleClass = `role-${msg.role}`;
+                    
+                    let contentStr = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+                    
+                    msgDiv.innerHTML = `
+                        <div class="role-tag ${roleClass}">${msg.role}</div>
+                        <div class="message-content">${escapeHtml(contentStr)}</div>
+                    `;
+                    details.appendChild(msgDiv);
+                });
+
+                summary.onclick = () => {
+                    details.classList.toggle('collapsed');
+                    const icon = summary.querySelector('.toggle-icon');
+                    icon.textContent = details.classList.contains('collapsed') ? '▶' : '▼';
+                };
+
+                content.appendChild(summary);
+                content.appendChild(details);
+                break;
+
+            case 'code':
+                content.textContent = log.message;
+                break;
+
+            default: // info, success, warn, error
+                if (log.prefix) {
+                    const prefixSpan = document.createElement('span');
+                    prefixSpan.className = 'log-prefix';
+                    prefixSpan.textContent = `[${log.prefix}]`;
+                    content.appendChild(prefixSpan);
+                }
+                content.appendChild(document.createTextNode(log.message));
+        }
+
+        // Assembly
+        div.appendChild(ts);
+        div.appendChild(content);
+        return div;
+    }
+
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
+    function connect() {
+        socket = new WebSocket('ws://localhost:3000');
+
+        socket.onopen = () => {
+            statusEl.textContent = 'CONNECTED';
+            statusEl.className = 'status-badge status-connected';
+            addSystemLog('Connected to Live Server');
+        };
+
+        socket.onclose = () => {
+            statusEl.textContent = 'DISCONNECTED';
+            statusEl.className = 'status-badge status-disconnected';
+            setTimeout(connect, 2000);
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                const el = createEntry(data);
+                stream.appendChild(el);
+                window.scrollTo(0, document.body.scrollHeight);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+    }
+
+    function addSystemLog(msg) {
+        const el = createEntry({
+            type: 'info',
+            prefix: 'System',
+            message: msg,
+            timestamp: new Date().toISOString()
+        });
+        stream.appendChild(el);
+    }
+
+    connect();
+</script>
+
+</body>
+</html>

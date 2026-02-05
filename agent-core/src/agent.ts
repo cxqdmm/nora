@@ -88,9 +88,14 @@ export class Agent {
   async chat(userInput: string): Promise<string> {
     // 1. Plan Phase
     Logger.phase("Planning");
+    
+    // List available tools for debugging/visibility
+    const availableToolNames = this.tools.map(t => (t as any).function.name);
+    Logger.info("Tools", `Available for planning: ${availableToolNames.join(', ')}`);
+
     let plan: Plan | null = null;
     try {
-      plan = await this.planner.createPlan(userInput, this.history);
+      plan = await this.planner.createPlan(userInput, this.history, this.tools);
       
       if (plan.steps && plan.steps.length > 0) {
         Logger.plan(plan.reasoning);
@@ -105,17 +110,17 @@ export class Agent {
 
     // 2. Execution Phase
     Logger.phase("Execution");
+
+    // Add user message to history
+    this.history.push({ role: "user", content: userInput });
     
-    // Inject Plan into Context
+    // Inject Plan into Context (as system instruction)
     if (plan && plan.steps && plan.steps.length > 0) {
       this.history.push({
         role: "system",
         content: `当前计划:\n${JSON.stringify(plan.steps, null, 2)}\n\n请按顺序执行这些步骤以回答用户请求。`
       });
     }
-
-    // Add user message to history
-    this.history.push({ role: "user", content: userInput });
 
     let finalAnswer = "";
     let turnCount = 0;

@@ -5,6 +5,8 @@ import readline from 'readline';
 import { MCPManager } from './mcp-manager.js';
 import { LLMService, LLMProvider } from './llm-service.js';
 import { Agent } from './agent.js';
+import { LogServer } from './log-server.js';
+import { Logger } from './logger.js';
 
 dotenv.config();
 
@@ -44,6 +46,11 @@ async function main() {
 
   // 1. Initialize Services
   const llm = new LLMService(provider);
+  
+  // Initialize Log Server
+  const logServer = new LogServer(3000);
+  Logger.setLogServer(logServer);
+  console.log(`[LogView] Open public/viewer.html in your browser to see live logs.`);
 
   // 2. Initialize MCP Managers
   const sandboxMcp = new MCPManager("python-sandbox");
@@ -80,6 +87,7 @@ async function main() {
           await sandboxMcp.close();
           await fsMcp.close();
           await memoryMcp.close();
+          logServer.close();
           process.exit(0);
         }
 
