@@ -67,6 +67,13 @@ export class Logger {
     // this.broadcast({ type: 'llm', role, message: content }); // Deprecated in favor of llmInput
   }
 
+  static llmResponse(role: string, content: string) {
+    if (!content) return;
+    const roleColor = role === 'user' ? chalk.cyan : role === 'assistant' ? chalk.green : role === 'system' ? chalk.gray : chalk.magenta;
+    console.log(`\n${roleColor(role.toUpperCase())}: ${content}\n`);
+    this.broadcast({ type: 'llm', role, message: content });
+  }
+
   static llmInput(messages: any[]) {
     console.log(`${chalk.magenta.bold(`[LLM]`)} Input Messages: ${messages.length}`);
     this.broadcast({ type: 'llm-input', messages });

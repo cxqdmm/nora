@@ -539,11 +539,16 @@
                     // because we have a specialized 'code' event type that handles it better.
                     // However, we still want to show that a tool was called, just maybe not the big JSON blob.
                     // Let's render a minimal badge instead.
+                    
+                    const rationale = log.args && log.args.rationale ? log.args.rationale : '';
+                    const rationaleHtml = rationale ? `<div class="tool-args" style="margin-top:5px; color:#98c379; font-style:italic;">Target: ${escapeHtml(rationale)}</div>` : '';
+
                     content.innerHTML = `
                         <div class="tool-header">
                             <span class="badge-tool">TOOL CALL</span>
                             <span class="tool-name">${log.name}</span>
                         </div>
+                        ${rationaleHtml}
                     `;
                 } else {
                     content.innerHTML = `

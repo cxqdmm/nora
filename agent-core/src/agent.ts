@@ -103,8 +103,16 @@ export class Agent {
 ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <description>${s.description}</description>\n  </skill>`).join("\n")}
 </available_skills>
 
-使用指南：
-当用户任务匹配上述技能时，请使用 \`read_skill(name)\` 工具加载详细指令。
+**技能调用协议 (SKILLS PROTOCOL - CRITICAL)**
+你拥有专门的“技能 (Skills)”（标准作业程序），其中包含特定任务的专家级知识。
+1. **检查 (CHECK)**：在每一轮对话开始时，检查用户的请求是否匹配 <available_skills> 中的任何技能。
+2. **激活 (ACTIVATE)**：如果发现匹配，你必须**立即**调用 \`read_skill(name)\`。在读取技能之前，不要进行规划或执行其他工具。
+3. **遵循 (FOLLOW)**：一旦加载了技能，请严格遵循其内部定义的程序执行。
+
+示例：
+用户：“帮我审查代码”
+匹配：“git-code-review”（描述：分析变更...）
+动作：调用 \`read_skill("git-code-review")\`
 `;
           // Inject into System Prompt (Update the first message)
           if (this.history.length > 0 && this.history[0].role === 'system') {
@@ -192,6 +200,11 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
       // ---------------------------------
 
       const response = await this.llm.chat(this.history, this.tools, undefined, "Agent");
+      
+      // Log the immediate response from Assistant
+      if (response.content) {
+        Logger.llmResponse(response.role, response.content);
+      }
       
       // Remove the transient context message so it doesn't pollute history permanently
       // (The Agent "sees" it in this turn, but we re-inject fresh context next turn)

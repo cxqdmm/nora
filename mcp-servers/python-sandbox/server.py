@@ -183,8 +183,11 @@ class AutoPrintTransformer(ast.NodeTransformer):
         # Default: Return unmodified
         return node
 
-def execute_code(code: str):
-    logger.info(f"Executing code length: {len(code)}")
+def execute_code(code: str, rationale: str = None):
+    if rationale:
+        logger.info(f"Executing code for rationale: {rationale}")
+    else:
+        logger.info(f"Executing code length: {len(code)}")
     
     stdout_capture = io.StringIO()
     stderr_capture = io.StringIO()
@@ -227,7 +230,8 @@ if __name__ == "__main__":
         {
             "type": "object",
             "properties": {
-                "code": {"type": "string", "description": "The python code to execute"}
+                "code": {"type": "string", "description": "The python code to execute"},
+                "rationale": {"type": "string", "description": "The goal or reason for executing this code (e.g., 'check git status', 'calculate diff')"}
             },
             "required": ["code"]
         },
