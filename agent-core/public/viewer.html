@@ -371,21 +371,45 @@
             margin-bottom: 5px;
             font-size: 11px;
         }
+        .entry.usage .content {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 2px;
+        }
         .usage-badge {
-            background: rgba(255, 255, 255, 0.1);
-            color: #aaa;
+            background: #333;
+            color: #d4d4d4;
             padding: 2px 6px;
             border-radius: 3px;
-            margin-right: 10px;
+            margin-right: 4px;
             font-weight: bold;
+            font-size: 10px;
             letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .usage-source {
+            display: inline-block;
+            margin-right: 4px;
+            color: var(--accent-purple);
+            font-weight: bold;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .usage-divider {
+            color: #555;
+            margin: 0 4px;
+            font-weight: normal;
         }
         .usage-item {
             color: var(--text-secondary);
-            margin-right: 12px;
+            font-family: var(--font-mono);
+            white-space: nowrap;
         }
         .usage-item strong {
             color: var(--accent-cyan);
+            font-weight: normal;
         }
         .usage-item.total strong {
             color: var(--accent-yellow);
@@ -543,10 +567,16 @@
 
             case 'llm-usage':
                 div.className = 'entry usage';
+                const source = log.source || 'Unknown';
                 content.innerHTML = `
                     <span class="usage-badge">TOKEN USAGE</span>
+                    <span class="usage-divider">·</span>
+                    <span class="usage-source">${source}</span>
+                    <span class="usage-divider">·</span>
                     <span class="usage-item">Prompt: <strong>${log.usage.prompt_tokens}</strong></span>
+                    <span class="usage-divider">·</span>
                     <span class="usage-item">Completion: <strong>${log.usage.completion_tokens}</strong></span>
+                    <span class="usage-divider">·</span>
                     <span class="usage-item total">Total: <strong>${log.usage.total_tokens}</strong></span>
                 `;
                 break;

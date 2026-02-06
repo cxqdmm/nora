@@ -48,38 +48,11 @@ export class LLMService {
     Logger.info("LLM", `Initialized with provider: ${provider}, model: ${this.model}`);
   }
 
-  async simpleChat(prompt: string): Promise<string> {
-    try {
-      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        { role: 'user', content: prompt }
-      ];
-      
-      const options: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
-        model: this.model,
-        messages: messages,
-      };
-
-      if (this.provider === 'openrouter') {
-        (options as any).max_tokens = 4096;
-      }
-
-      const response = await this.client.chat.completions.create(options);
-      
-      if (response.usage) {
-        Logger.llmUsage(response.usage);
-      }
-
-      return response.choices[0].message.content || "";
-    } catch (error: any) {
-      Logger.error("LLM", `SimpleChat Error: ${error.message}`);
-      return "";
-    }
-  }
-
   async chat(
     messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[], 
     tools?: OpenAI.Chat.Completions.ChatCompletionTool[],
-    toolChoice?: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption
+    toolChoice?: OpenAI.Chat.Completions.ChatCompletionToolChoiceOption,
+    source: string = 'Unknown'
   ) {
     // Log messages
     Logger.llmInput(messages);
@@ -112,7 +85,7 @@ export class LLMService {
       const response = await this.client.chat.completions.create(options);
 
       if (response.usage) {
-        Logger.llmUsage(response.usage);
+        Logger.llmUsage(response.usage, source);
       }
 
       return response.choices[0].message;

@@ -73,7 +73,7 @@ export class Planner {
     
     // Pass tools to LLM but force tool_choice to "none" to ensure we get a JSON plan, not a tool call
     // However, providing tools allows the LLM to understand what capabilities are available.
-    const response = await this.llm.chat(messages, tools, "none");
+    const response = await this.llm.chat(messages, tools, "none", "Planner");
     
     const content = response.content || "{}";
     

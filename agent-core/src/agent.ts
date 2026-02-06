@@ -154,7 +154,7 @@ export class Agent {
       }
       // ---------------------------------
 
-      const response = await this.llm.chat(this.history, this.tools);
+      const response = await this.llm.chat(this.history, this.tools, undefined, "Agent");
       
       // Remove the transient context message so it doesn't pollute history permanently
       // (The Agent "sees" it in this turn, but we re-inject fresh context next turn)

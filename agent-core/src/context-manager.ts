@@ -85,7 +85,8 @@ ${summaryContext}
       };
 
       try {
-        const rawRes = await this.llm.simpleChat(archivePrompt);
+        const response = await this.llm.chat([{ role: 'user', content: archivePrompt }], undefined, undefined, "Memory-Archive");
+        const rawRes = response.content || "{}";
         const jsonMatch = rawRes.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             metadata = JSON.parse(jsonMatch[0]);
@@ -264,7 +265,8 @@ ${conversationText}
 
     // 4. Call LLM
     try {
-      const rawResult = await this.llm.simpleChat(consolidationPrompt);
+      const response = await this.llm.chat([{ role: 'user', content: consolidationPrompt }], undefined, undefined, "Memory-Consolidation");
+      const rawResult = response.content || "{}";
       
       // Clean up markdown code blocks if present
       const jsonStr = rawResult.replace(/```json/g, '').replace(/```/g, '').trim();

@@ -92,11 +92,11 @@ export class Logger {
     this.broadcast({ type: 'final-answer', message: content });
   }
 
-  static llmUsage(usage: any) {
+  static llmUsage(usage: any, source: string = 'Unknown') {
     if (!usage) return;
     const { prompt_tokens, completion_tokens, total_tokens } = usage;
-    console.log(chalk.gray(`  [Usage] Prompt: ${prompt_tokens}, Completion: ${completion_tokens}, Total: ${total_tokens}`));
-    this.broadcast({ type: 'llm-usage', usage });
+    console.log(chalk.gray(`  [Usage:${source}] Prompt: ${prompt_tokens}, Completion: ${completion_tokens}, Total: ${total_tokens}`));
+    this.broadcast({ type: 'llm-usage', usage, source });
   }
 
   static contextUpdate(items: any[]) {
