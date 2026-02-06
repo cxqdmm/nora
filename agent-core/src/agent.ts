@@ -88,6 +88,34 @@ export class Agent {
       }
     }
     Logger.info("Agent", `Initialized with tools: ${this.tools.map(t => (t as any).function.name).join(', ')}`);
+
+    // 2. Discover Available Skills (Layer 1 Metadata)
+    try {
+      const skillsMcp = this.toolMap.get("list_skills"); // Check if 'list_skills' tool is available
+      if (skillsMcp) {
+        const result = await skillsMcp.callTool("list_skills", {});
+        const contentText = (result as any).content[0].text;
+        const skillsList = JSON.parse(contentText);
+        
+        if (skillsList.length > 0) {
+          const skillsBlock = `
+<available_skills>
+${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <description>${s.description}</description>\n  </skill>`).join("\n")}
+</available_skills>
+
+使用指南：
+当用户任务匹配上述技能时，请使用 \`read_skill(name)\` 工具加载详细指令。
+`;
+          // Inject into System Prompt (Update the first message)
+          if (this.history.length > 0 && this.history[0].role === 'system') {
+            this.history[0].content += "\n\n" + skillsBlock;
+            Logger.info("Agent", `Injected ${skillsList.length} skills into System Prompt.`);
+          }
+        }
+      }
+    } catch (e) {
+      Logger.warn("Agent", `Failed to inject skills metadata: ${e}`);
+    }
   }
 
   async chat(userInput: string): Promise<string> {
@@ -255,6 +283,10 @@ export class Agent {
                  contentText = rawSummaries;
                }
 
+            } else if (toolName === 'read_skill') {
+               Logger.info("Skill", `正在加载技能指令: ${args.name}`);
+               const toolResult = await mcp.callTool(toolName, args);
+               contentText = (toolResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
             } else {
                const toolResult = await mcp.callTool(toolName, args);
                contentText = (toolResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");

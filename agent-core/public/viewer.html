@@ -321,14 +321,11 @@
         .role-assistant { color: var(--accent-green); border: 1px solid var(--accent-green); }
 
         /* Code Blocks */
-        .entry.code .content {
-            background: #141414;
-            border: 1px solid #333;
-            border-radius: 4px;
-            padding: 10px;
-            font-family: var(--font-mono);
-            color: var(--accent-yellow);
-            overflow-x: auto;
+        .entry.code-execution .content {
+            /* Remove default styling since we handle it in JS now */
+            background: transparent;
+            border: none;
+            padding: 0;
         }
 
         /* Standard Logs */
@@ -415,6 +412,38 @@
             color: var(--accent-yellow);
         }
 
+        /* Tool Output */
+        .tool-output-summary {
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--text-secondary);
+            user-select: none;
+            display: flex;
+            align-items: center;
+        }
+        .tool-output-summary:hover {
+            color: var(--text-primary);
+        }
+        .tool-output-details {
+            margin-top: 5px;
+            padding-left: 10px;
+            border-left: 2px solid var(--border-color);
+            overflow-x: auto;
+        }
+
+        /* Execution Result */
+        .log-prefix.execution-result {
+            color: var(--accent-green);
+        }
+        .tool-output-details.execution-output {
+            background: #141414;
+            color: #d4d4d4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            border-left: 3px solid var(--accent-green);
+        }
+
         /* Utils */
         .dim { opacity: 0.6; }
         
@@ -460,6 +489,8 @@
                '.' + String(d.getMilliseconds()).padStart(3, '0');
     }
 
+    let lastLogType = null; // Track previous log type for context
+
     function createEntry(log) {
         const div = document.createElement('div');
         div.className = `entry ${log.type}`;
@@ -502,13 +533,27 @@
                 break;
 
             case 'tool':
-                content.innerHTML = `
-                    <div class="tool-header">
-                        <span class="badge-tool">TOOL CALL</span>
-                        <span class="tool-name">${log.name}</span>
-                    </div>
-                    <div class="tool-args">${JSON.stringify(log.args, null, 2)}</div>
-                `;
+                // Check if this is an execute_code tool call
+                if (log.name === 'execute_code') {
+                    // Do not render the standard tool block for execute_code to avoid duplication
+                    // because we have a specialized 'code' event type that handles it better.
+                    // However, we still want to show that a tool was called, just maybe not the big JSON blob.
+                    // Let's render a minimal badge instead.
+                    content.innerHTML = `
+                        <div class="tool-header">
+                            <span class="badge-tool">TOOL CALL</span>
+                            <span class="tool-name">${log.name}</span>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = `
+                        <div class="tool-header">
+                            <span class="badge-tool">TOOL CALL</span>
+                            <span class="tool-name">${log.name}</span>
+                        </div>
+                        <div class="tool-args">${JSON.stringify(log.args, null, 2)}</div>
+                    `;
+                }
                 break;
             
             case 'llm':
@@ -555,7 +600,35 @@
                 break;
 
             case 'code':
-                content.textContent = log.message;
+                // Collapsible Code Execution (Default Collapsed)
+                div.className = 'entry code-execution';
+                
+                const codeSummary = document.createElement('div');
+                codeSummary.className = 'tool-output-summary'; // Reuse style
+                codeSummary.innerHTML = `<span class="toggle-icon" style="margin-right: 5px;">▶</span> <span class="log-prefix">[Execute Code]</span>`;
+                
+                const codeDetails = document.createElement('div');
+                codeDetails.className = 'tool-output-details'; // Reuse style
+                codeDetails.style.display = 'none'; // Default collapsed
+                
+                const pre = document.createElement('pre');
+                pre.style.margin = '0';
+                pre.style.background = '#141414';
+                pre.style.padding = '10px';
+                pre.style.borderRadius = '4px';
+                pre.style.color = '#e5c07b';
+                pre.textContent = log.message;
+                
+                codeDetails.appendChild(pre);
+
+                codeSummary.onclick = () => {
+                    const isCollapsed = codeDetails.style.display === 'none';
+                    codeDetails.style.display = isCollapsed ? 'block' : 'none';
+                    codeSummary.querySelector('.toggle-icon').textContent = isCollapsed ? '▼' : '▶';
+                };
+
+                content.appendChild(codeSummary);
+                content.appendChild(codeDetails);
                 break;
 
             case 'final-answer':
@@ -586,14 +659,50 @@
                 break;
 
             default: // info, success, warn, error
-                if (log.prefix) {
-                    const prefixSpan = document.createElement('span');
-                    prefixSpan.className = 'log-prefix';
-                    prefixSpan.textContent = `[${log.prefix}]`;
-                    content.appendChild(prefixSpan);
+                if (log.prefix === 'ToolOutput') {
+                    // Check if previous log was code execution
+                    let label = '[ToolOutput]';
+                    let labelClass = 'log-prefix';
+                    
+                    if (lastLogType === 'code') {
+                        label = '[Execution Result]';
+                        labelClass = 'log-prefix execution-result';
+                    }
+
+                    // Collapsible Tool Output (Default Expanded)
+                    const summary = document.createElement('div');
+                    summary.className = 'tool-output-summary';
+                    summary.innerHTML = `<span class="toggle-icon" style="margin-right: 5px;">▼</span> <span class="${labelClass}">${label}</span>`;
+                    
+                    const details = document.createElement('div');
+                    details.className = 'tool-output-details';
+                    // Apply special styling if it's an execution result
+                    if (lastLogType === 'code') {
+                        details.classList.add('execution-output');
+                    }
+                    details.textContent = log.message;
+
+                    summary.onclick = () => {
+                        const isCollapsed = details.style.display === 'none';
+                        details.style.display = isCollapsed ? 'block' : 'none';
+                        summary.querySelector('.toggle-icon').textContent = isCollapsed ? '▼' : '▶';
+                    };
+
+                    content.appendChild(summary);
+                    content.appendChild(details);
+                } else {
+                    if (log.prefix) {
+                        const prefixSpan = document.createElement('span');
+                        prefixSpan.className = 'log-prefix';
+                        prefixSpan.textContent = `[${log.prefix}]`;
+                        content.appendChild(prefixSpan);
+                    }
+                    content.appendChild(document.createTextNode(log.message));
                 }
-                content.appendChild(document.createTextNode(log.message));
         }
+        
+        // Update last log type
+        lastLogType = log.type;
 
         // Assembly
         div.appendChild(ts);

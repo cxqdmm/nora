@@ -16,6 +16,7 @@ const __dirname = path.dirname(__filename);
 // Server Configs
 const pythonServerPath = path.resolve(__dirname, "../../mcp-servers/python-sandbox/server.py");
 const memoryServicePath = path.resolve(__dirname, "../../mcp-servers/memory-service/src/index.ts");
+const skillsServicePath = path.resolve(__dirname, "../../mcp-servers/skills-service/src/index.ts");
 const allowedDir = "/"; // Allow entire system access
 
 function parseArgs(): { provider: LLMProvider } {
@@ -56,6 +57,7 @@ async function main() {
   const sandboxMcp = new MCPManager("python-sandbox");
   const fsMcp = new MCPManager("filesystem");
   const memoryMcp = new MCPManager("memory-service");
+  const skillsMcp = new MCPManager("skills-service");
 
   try {
     // 3. Connect to Servers
@@ -69,8 +71,11 @@ async function main() {
     // Connect to Memory Service
     await memoryMcp.connect("npx", ["-y", "tsx", memoryServicePath]);
 
+    // Connect to Skills Service
+    await skillsMcp.connect("npx", ["-y", "tsx", skillsServicePath]);
+
     // 4. Initialize Agent with ALL MCPs
-    const agent = new Agent([sandboxMcp, fsMcp, memoryMcp], llm);
+    const agent = new Agent([sandboxMcp, fsMcp, memoryMcp, skillsMcp], llm);
     await agent.initialize();
 
     // 5. Setup Interactive Loop
