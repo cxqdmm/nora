@@ -3,6 +3,7 @@ import json
 import logging
 import traceback
 import io
+import ast
 from contextlib import redirect_stdout, redirect_stderr
 from typing import Any, Dict, Optional
 
@@ -117,17 +118,99 @@ class MCPServer:
         sys.stdout.flush()
 
 # Tool implementations
+class AutoPrintTransformer(ast.NodeTransformer):
+    def visit_Module(self, node):
+        if not node.body:
+            return node
+        
+        # Only process the very last statement of the module
+        last_node = node.body[-1]
+        new_last_node = self.process_node(last_node)
+        
+        if new_last_node != last_node:
+            node.body[-1] = new_last_node
+            ast.fix_missing_locations(node)
+        
+        return node
+
+    def process_node(self, node):
+        """Recursively process nodes to find tail expressions."""
+        
+        # Case 1: The node is an Expression -> Wrap in _display_result(...)
+        if isinstance(node, ast.Expr):
+            new_node = ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id='_display_result', ctx=ast.Load()),
+                    args=[node.value],
+                    keywords=[]
+                )
+            )
+            ast.copy_location(new_node, node)
+            ast.fix_missing_locations(new_node)
+            return new_node
+        
+        # Case 2: If statement -> Process last stmt of body and orelse
+        elif isinstance(node, ast.If):
+            if node.body:
+                node.body[-1] = self.process_node(node.body[-1])
+            if node.orelse:
+                node.orelse[-1] = self.process_node(node.orelse[-1])
+            return node
+            
+        # Case 3: Try statement -> Process body, handlers, finalbody, orelse
+        elif isinstance(node, ast.Try):
+            if node.body:
+                node.body[-1] = self.process_node(node.body[-1])
+            
+            for handler in node.handlers:
+                if handler.body:
+                    handler.body[-1] = self.process_node(handler.body[-1])
+            
+            if node.finalbody:
+                node.finalbody[-1] = self.process_node(node.finalbody[-1])
+                
+            if node.orelse:
+                node.orelse[-1] = self.process_node(node.orelse[-1])
+            
+            return node
+            
+        # Case 4: With / AsyncWith -> Process body
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+             if node.body:
+                node.body[-1] = self.process_node(node.body[-1])
+             return node
+
+        # Default: Return unmodified
+        return node
+
 def execute_code(code: str):
     logger.info(f"Executing code length: {len(code)}")
     
     stdout_capture = io.StringIO()
     stderr_capture = io.StringIO()
     
-    result_globals = {}
+    def _display_result(val):
+        if val is not None:
+            print(repr(val))
+            
+    result_globals = {
+        '_display_result': _display_result
+    }
     
     try:
+        # Parse the code
+        tree = ast.parse(code)
+        
+        # Transform the AST to auto-print tail expressions
+        transformer = AutoPrintTransformer()
+        tree = transformer.visit(tree)
+        ast.fix_missing_locations(tree)
+        
+        # Execute the transformed code
+        exec_code_obj = compile(tree, filename="<string>", mode="exec")
+        
         with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
-            exec(code, result_globals)
+            exec(exec_code_obj, result_globals)
         
         output = stdout_capture.getvalue()
         errors = stderr_capture.getvalue()
