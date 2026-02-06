@@ -94,6 +94,9 @@ export class Agent {
     // 0. Manage Memory (Consolidation) - Start of session
     await this.memoryManager.consolidateMemory(this.history, this.MAX_HISTORY_LENGTH, this.KEEP_RECENT_COUNT);
 
+    // Get current context prompt to pass to Planner
+    const contextPrompt = this.memoryManager.getPrompt();
+
     // 1. Plan Phase
     Logger.phase("Planning");
     
@@ -103,7 +106,13 @@ export class Agent {
 
     let plan: Plan | null = null;
     try {
-      plan = await this.planner.createPlan(userInput, this.history, this.tools);
+      // Inject context into Planner history temporarily
+      const planningHistory = [...this.history];
+      if (contextPrompt) {
+        planningHistory.push({ role: "system", content: contextPrompt });
+      }
+      
+      plan = await this.planner.createPlan(userInput, planningHistory, this.tools);
       
       if (plan.steps && plan.steps.length > 0) {
         Logger.plan(plan.reasoning);

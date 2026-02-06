@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
 // Server Configs
 const pythonServerPath = path.resolve(__dirname, "../../mcp-servers/python-sandbox/server.py");
 const memoryServicePath = path.resolve(__dirname, "../../mcp-servers/memory-service/src/index.ts");
-const allowedDir = path.resolve(__dirname, "../../workspace"); // Create a safe workspace dir
+const allowedDir = "/"; // Allow entire system access
 
 function parseArgs(): { provider: LLMProvider } {
   const args = process.argv.slice(2);
