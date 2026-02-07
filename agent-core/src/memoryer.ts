@@ -85,8 +85,8 @@ export class Memoryer {
         // We look up the summary object to check 'source'
         const summary = summaries.find(s => s.id === id);
         
-        if (summary && summary.source === 'short_term' && memoryManager) {
-           const content = await memoryManager.readShortTermMemory(id);
+        if (summary && summary.source === 'short_term' && memoryManager && typeof (memoryManager as any).readShortTermMemory === 'function') {
+           const content = await (memoryManager as any).readShortTermMemory(id);
            if (content) {
              contents.push(`--- Short-Term Memory ID: ${id} ---\n${content}\n--- End of Memory ---`);
            } else {

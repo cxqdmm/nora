@@ -21,16 +21,10 @@ const SYSTEM_PROMPT = `
 3. **通用**：解释工具输出并提供清晰的最终答案。
 
 **记忆整合策略（重要）：**
-在每个复杂任务或重要交互结束时，你必须反思这段对话。
-问自己：“这里有什么高价值的信息是我应该为未来记住的吗？”
-- **高价值信息包括**：
-    - Bug 修复及其根本原因。
-    - 用户偏好（例如，“我更喜欢 TypeScript 而不是 JS”）。
-    - 成功的代码模式或架构决策。
-    - 有效的复杂命令序列。
-- 如果是，你必须使用 \`store_memory\` 工具保存结构化的记忆（Markdown 格式）。
-- **不要请求用户保存许可**，如果它有价值，请主动保存。
-- 保存后，告知用户：“我已将此解决方案/偏好保存到我的长期记忆中，以供将来参考。”
+长期记忆（\`store_memory\`）只在用户**明确要求**时才使用。
+- 如果用户明确说“请记住/保存/写入长期记忆/存档这段结论”，你才调用 \`store_memory\`。
+- 否则不要主动将信息写入长期记忆。
+- 用户询问过去信息时，仍可使用 \`search_memories\` / \`read_memory\` 检索与读取。
 
 **交互风格：**
 - 以规划器（Planner）的计划为指导。
@@ -44,11 +38,10 @@ export class Agent {
   private planner: Planner;
   private memoryer: Memoryer;
   private memoryManager: MemoryManager;
-  private history: ChatCompletionMessageParam[] = [];
-  private readonly MAX_HISTORY_LENGTH = 30; // Increased limit
-  private readonly KEEP_RECENT_COUNT = 5; // Keep most recent 5 messages raw
+  private systemMessage: ChatCompletionMessageParam;
   private tools: ChatCompletionTool[] = [];
   private toolMap: Map<string, MCPManager> = new Map();
+  private turnId = 0;
 
   constructor(mcps: MCPManager[], llm: LLMService) {
     this.mcps = mcps;
@@ -56,12 +49,11 @@ export class Agent {
     this.planner = new Planner(llm);
     this.memoryer = new Memoryer(llm);
     this.memoryManager = new MemoryManager(llm);
-    
-    // Initialize history with system prompt
-    this.history.push({
+
+    this.systemMessage = {
       role: "system",
-      content: SYSTEM_PROMPT
-    });
+      content: SYSTEM_PROMPT,
+    };
   }
 
   async initialize() {
@@ -114,11 +106,8 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
 匹配：“git-code-review”（描述：分析变更...）
 动作：调用 \`read_skill("git-code-review")\`
 `;
-          // Inject into System Prompt (Update the first message)
-          if (this.history.length > 0 && this.history[0].role === 'system') {
-            this.history[0].content += "\n\n" + skillsBlock;
-            Logger.info("Agent", `Injected ${skillsList.length} skills into System Prompt.`);
-          }
+          this.systemMessage.content += "\n\n" + skillsBlock;
+          Logger.info("Agent", `Injected ${skillsList.length} skills into System Prompt.`);
         }
       }
     } catch (e) {
@@ -127,11 +116,8 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
   }
 
   async chat(userInput: string): Promise<string> {
-    // 0. Manage Memory (Consolidation) - Start of session
-    await this.memoryManager.consolidateMemory(this.history, this.MAX_HISTORY_LENGTH, this.KEEP_RECENT_COUNT);
-
-    // Get current context prompt to pass to Planner
-    const contextPrompt = this.memoryManager.getPrompt();
+    this.turnId += 1;
+    const currentTurnId = this.turnId;
 
     // 1. Plan Phase
     Logger.phase("Planning");
@@ -142,10 +128,11 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
 
     let plan: Plan | null = null;
     try {
-      // Inject context into Planner history temporarily
-      const planningHistory = [...this.history];
-      if (contextPrompt) {
-        planningHistory.push({ role: "system", content: contextPrompt });
+      const planningHistory: ChatCompletionMessageParam[] = [this.systemMessage];
+
+      const dynamicContextForPlan = await this.memoryManager.retrieveContext(userInput);
+      if (dynamicContextForPlan) {
+        planningHistory.push({ role: "assistant", content: `【短期记忆召回】\n${dynamicContextForPlan}` });
       }
       
       plan = await this.planner.createPlan(userInput, planningHistory, this.tools);
@@ -164,16 +151,23 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
     // 2. Execution Phase
     Logger.phase("Execution");
 
-    // Add user message to history
-    this.history.push({ role: "user", content: userInput });
-    
-    // Inject Plan into Context (as system instruction)
+    try {
+      await this.memoryManager.summarizeUserMessage(userInput, currentTurnId);
+    } catch (e) {
+      Logger.warn("Agent", "Failed to summarize user input for short-term memory.");
+    }
+
+    // executionHistory 仅用于记录完整对话历史供后续参考/验证，不再直接作为 LLM 上下文
+    const executionHistory: ChatCompletionMessageParam[] = [this.systemMessage];
+
     if (plan && plan.steps && plan.steps.length > 0) {
-      this.history.push({
+      executionHistory.push({
         role: "system",
-        content: `当前计划:\n${JSON.stringify(plan.steps, null, 2)}\n\n请按顺序执行这些步骤以回答用户请求。`
+        content: `当前计划:\n${JSON.stringify(plan.steps, null, 2)}\n\n请按顺序执行这些步骤以回答用户请求。`,
       });
     }
+
+    executionHistory.push({ role: "user", content: userInput });
 
     let finalAnswer = "";
     let turnCount = 0;
@@ -183,36 +177,45 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
       turnCount++;
       Logger.turn(turnCount, "Thinking...");
 
-      // Prune history inside the loop to prevent token overflow during long chains
-      // MUST be done before Context Injection to avoid messing up indices or keeping transient messages
-      await this.memoryManager.consolidateMemory(this.history, this.MAX_HISTORY_LENGTH, this.KEEP_RECENT_COUNT);
+      // --- 构建本轮 LLM 上下文 (完全基于动态检索) ---
+      // 每一轮都重新构建 Prompt，只包含 System、Plan、检索到的上下文和用户原始输入
+      const messagesForTurn: ChatCompletionMessageParam[] = [this.systemMessage];
 
-      // --- DYNAMIC CONTEXT INJECTION ---
-      // We inject the working memory state as a ephemeral system message at the end of history
-      // or update the main system prompt. Here, appending a transient system message is safer.
-      const contextPrompt = this.memoryManager.getPrompt();
-      let contextMsgIndex = -1;
-      
-      if (contextPrompt) {
-        this.history.push({ role: "system", content: contextPrompt });
-        contextMsgIndex = this.history.length - 1;
+      // 1. 优先注入计划 (作为基准上下文)
+      if (plan && plan.steps && plan.steps.length > 0) {
+        messagesForTurn.push({
+            role: "system",
+            content: `当前计划:\n${JSON.stringify(plan.steps, null, 2)}\n\n请严格遵循上述计划执行。`
+        });
       }
-      // ---------------------------------
 
-      const response = await this.llm.chat(this.history, this.tools, undefined, "Agent");
+      // 2. 动态上下文检索
+      try {
+        const dynamicContext = await this.memoryManager.retrieveContext(userInput);
+        if (dynamicContext) {
+          messagesForTurn.push({ 
+            role: "system", 
+            content: `【当前动态上下文】\n以下是根据你的请求检索到的相关历史信息（包含之前的工具执行结果等）：\n${dynamicContext}\n\n请基于上述上下文继续执行任务。` 
+          });
+          Logger.info("Context", `Injected dynamic context for turn ${turnCount}`);
+        }
+      } catch (e) {
+        Logger.warn("Context", "Failed to retrieve dynamic context.");
+      }
+
+      // 3. 用户输入 (任务锚点)
+      messagesForTurn.push({ role: "user", content: userInput });
+
+      const response = await this.llm.chat(messagesForTurn, this.tools, undefined, "Agent");
       
       // Log the immediate response from Assistant
       if (response.content) {
         Logger.llmResponse(response.role, response.content);
-      }
-      
-      // Remove the transient context message so it doesn't pollute history permanently
-      // (The Agent "sees" it in this turn, but we re-inject fresh context next turn)
-      if (contextMsgIndex !== -1) {
-        this.history.splice(contextMsgIndex, 1);
+        this.memoryManager.summarizeAssistantReply(response.content, turnCount).catch(e => {});
       }
 
-      this.history.push(response);
+      // 记录到历史数组 (Ref Only)
+      executionHistory.push(response);
 
       // Check if LLM wants to call a tool
       if (response.tool_calls && response.tool_calls.length > 0) {
@@ -224,19 +227,16 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
             Logger.toolCall((toolCall as any).function.name, args);
           } catch (e) {
             Logger.error("Tool", `Failed to parse arguments for ${(toolCall as any).function.name}`);
-            this.history.push({
-              role: "tool",
+            const errorMsg = {
+              role: "tool" as const,
               tool_call_id: toolCall.id,
               content: "Error: Invalid JSON arguments provided."
-            });
+            };
+            executionHistory.push(errorMsg); // Record error
             continue;
           }
 
           const toolName = (toolCall as any).function.name;
-
-          // --- HANDLE NATIVE TOOLS ---
-          // manage_context tool removed as it is now handled automatically
-          // ---------------------------
 
           // Special Logging for execute_code
           if (toolName === 'execute_code' && args.code) {
@@ -247,11 +247,12 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
           const mcp = this.toolMap.get(toolName);
           if (!mcp) {
              Logger.error("Tool", `${toolName} not found in any MCP server.`);
-             this.history.push({
-              role: "tool",
+             const errorMsg = {
+              role: "tool" as const,
               tool_call_id: toolCall.id,
               content: `Error: Tool ${toolName} not found.`
-            });
+            };
+            executionHistory.push(errorMsg);
             continue;
           }
 
@@ -270,20 +271,9 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
                     // Mark as long_term
                     summaries = summaries.map(s => ({ ...s, source: 'long_term' }));
                  } catch (e) {
-                    // rawSummaries might not be JSON if tool failed or returned text
                     Logger.warn("Agent", "search_memories returned non-JSON");
                  }
-
-                 // Fetch Short-Term Summaries
-                 try {
-                    const shortTerm = await this.memoryManager.getShortTermSummaries();
-                    // No client-side filtering; let LLM decide relevance
-                    summaries = [...summaries, ...shortTerm];
-                    Logger.info("Agent", `Merged memory summaries: ${summaries.length} items.`);
-                 } catch (e) {
-                    Logger.error("Agent", `Failed to load short-term memories: ${e}`);
-                 }
-
+                 
                  // Call Memoryer to refine and fetch details
                  const readMemoryMcp = this.toolMap.get('read_memory');
                  if (readMemoryMcp) {
@@ -292,7 +282,6 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
                    contentText = rawSummaries; // Fallback if read_memory not found
                  }
                } catch (e) {
-                 // If parsing fails (maybe empty or error), just return raw
                  contentText = rawSummaries;
                }
 
@@ -307,14 +296,19 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
             
             Logger.toolOutput(contentText);
 
-            this.history.push({
+            // 重要：工具输出必须被摘要进入 MemoryManager，这样下一轮 retrieveContext 才能检索到它
+            this.memoryManager.summarizeToolOutput(toolName, args, contentText, turnCount, toolCall.id)
+                .catch(e => Logger.warn("Memory", `Failed to summarize tool output: ${e}`));
+
+            // 记录到历史 (Ref Only)
+            executionHistory.push({
               role: "tool",
               tool_call_id: toolCall.id,
               content: contentText || "(Tool executed successfully with no text output)"
             });
           } catch (error: any) {
             Logger.error("Tool", `Execution failed: ${error.message}`);
-            this.history.push({
+            executionHistory.push({
               role: "tool",
               tool_call_id: toolCall.id,
               content: `Error executing tool: ${error.message}`

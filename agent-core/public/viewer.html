@@ -737,13 +737,41 @@
         items.forEach(item => {
             const div = document.createElement('div');
             div.className = 'context-item';
-            div.innerHTML = `
+            
+            // Create summary part (always visible)
+            const summaryDiv = document.createElement('div');
+            summaryDiv.innerHTML = `
                 <div class="context-meta">
                     <span class="context-source">${item.source || 'unknown'}</span>
                     <span class="context-time">${formatTime(new Date(item.timestamp))}</span>
                 </div>
-                <div class="context-content">${escapeHtml(item.content)}</div>
+                <div class="context-content" style="cursor: pointer;" title="Click to toggle details">
+                    <span class="toggle-icon">▶</span> ${escapeHtml(item.content)}
+                </div>
             `;
+            
+            // Create details part (hidden by default)
+            const detailsDiv = document.createElement('div');
+            detailsDiv.style.display = 'none';
+            detailsDiv.style.marginTop = '8px';
+            detailsDiv.style.paddingTop = '8px';
+            detailsDiv.style.borderTop = '1px solid var(--border-color)';
+            detailsDiv.style.fontSize = '11px';
+            detailsDiv.style.color = '#aaa';
+            detailsDiv.style.whiteSpace = 'pre-wrap';
+            detailsDiv.style.maxHeight = '300px';
+            detailsDiv.style.overflowY = 'auto';
+            detailsDiv.textContent = item.fullContent || '(No details)';
+
+            // Toggle logic
+            summaryDiv.querySelector('.context-content').onclick = () => {
+                const isCollapsed = detailsDiv.style.display === 'none';
+                detailsDiv.style.display = isCollapsed ? 'block' : 'none';
+                summaryDiv.querySelector('.toggle-icon').textContent = isCollapsed ? '▼' : '▶';
+            };
+
+            div.appendChild(summaryDiv);
+            div.appendChild(detailsDiv);
             contextList.appendChild(div);
         });
     }

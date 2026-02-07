@@ -1,315 +1,179 @@
 import { Logger } from './logger.js';
 import { LLMService } from './llm-service.js';
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import * as fs from 'fs';
-import * as path from 'path';
+
+export interface MemoryUnit {
+  id: string;
+  turnId: number;
+  role: 'user' | 'assistant' | 'tool';
+  summary: string;
+  content: string;
+  toolName?: string;
+  toolArgs?: any;
+  timestamp: number;
+  relatedId?: string;
+}
 
 export class MemoryManager {
-  private summary: string = "";
+  private memoryStream: MemoryUnit[] = [];
   private llm: LLMService;
-  private readonly memoryBaseDir: string;
-  private readonly shortTermDir: string;
-
+  
   constructor(llm: LLMService) {
     this.llm = llm;
-    // Base memory directory
-    this.memoryBaseDir = path.join(process.cwd(), '..', 'memorys'); // Assuming agent-core is sibling to memorys or inside project root. 
-    // Let's adjust path logic to be safe. User said "/Users/mac/Documents/cxq/nora/memorys/memories/..."
-    // Current CWD is "/Users/mac/Documents/cxq/nora"
-    // So 'memorys' is in project root.
-    this.memoryBaseDir = path.join(process.cwd(), 'memorys');
+  }
 
-    this.shortTermDir = path.join(this.memoryBaseDir, 'short-memorys');
+  addMemory(unit: MemoryUnit) {
+    this.memoryStream.push(unit);
+
+    // Broadcast update to UI (Viewer)
+    // Map memory units to viewer context items
+    const contextItems = this.memoryStream.map(m => ({
+        source: `${m.role.toUpperCase()} (T${m.turnId})`,
+        content: m.summary || m.content.substring(0, 50) + '...',
+        fullContent: m.content, // Send full content for inspection
+        timestamp: m.timestamp
+    }));
     
-    if (!fs.existsSync(this.shortTermDir)) {
-      fs.mkdirSync(this.shortTermDir, { recursive: true });
-    }
+    // Invert order to show newest at top for better visibility in side panel
+    // or keep chronological? Side panels usually show newest first if it's a "state" view.
+    // Let's try newest first (reverse).
+    Logger.contextUpdate(contextItems.reverse());
+    Logger.historyStats(this.memoryStream.length, 0); // 0 means no hard limit displayed
   }
 
-  private generateId(): string {
-    return Math.random().toString(36).substring(2, 10);
+  getStream(): MemoryUnit[] {
+    return this.memoryStream;
   }
 
-  private async archiveMessages(messages: ChatCompletionMessageParam[], summaryContext: string) {
-    if (messages.length === 0) return;
+  private async generateSummary(role: 'user' | 'assistant' | 'tool', content: string, extraInfo: string = ""): Promise<string> {
+      let systemInstruction = "";
+      if (role === 'user') {
+          systemInstruction = "请为用户的这句发言生成一个极其简短的摘要（1句，<20字），保留核心意图和关键实体。";
+      } else if (role === 'tool') {
+          systemInstruction = "请为这个工具执行结果生成一个极其简短的摘要（1句，<30字）。概括操作对象和结果，包含关键标识符。核心目标是让后续检索能判断是否包含细节。";
+      } else {
+          systemInstruction = "请为 AI 助手的这段回复生成一个极其简短的摘要（1句，<20字），保留核心结论或建议。";
+      }
 
-    try {
-      // 1. Prepare Content
-      const conversationText = messages.map(m => {
-        const content = typeof m.content === 'string' ? m.content : '[Complex Content]';
-        return `**${m.role.toUpperCase()}**: ${content}`;
-      }).join('\n\n');
+      const prompt = `
+${systemInstruction}
 
-      // 2. Generate Metadata via LLM
-      const archivePrompt = `
-你是一个专业的记忆归档员。
-你的任务是将一段原始对话转化为一篇结构清晰的“知识文档”。
-请不要保留原始对话的 User/Assistant 格式，而是将其重写为第三人称的叙述性文档。
-
-对话片段：
+内容片段：
 """
-${conversationText.substring(0, 3000)} ... (只截取前3000字符用于分析)
+${extraInfo ? `[Info: ${extraInfo}]\n` : ''}${content.substring(0, 500)}
 """
 
-上下文摘要（供参考）：
-"""
-${summaryContext}
-"""
-
-任务：
-1. 为这段对话生成一个简短标题（title）。
-2. 生成一段简明扼要的描述（description），概括这段对话解决了什么问题或讨论了什么内容。
-3. 提取3-5个关键标签（tags）。
-4. 评估其重要性（importance，1-10分）。
-5. **核心任务**：将原始对话重写为一篇结构化的“知识文档”（markdown content）。
-   - 包含：背景/问题描述、关键决策过程、最终解决方案/代码片段、已验证的结论。
-   - 去除：所有闲聊、重复尝试的中间过程、无效的工具调用。
-   - 风格：客观、技术性、简洁。
-
-输出格式 (JSON):
-{
-  "title": "...",
-  "description": "...",
-  "tags": ["...", "..."],
-  "importance": 5,
-  "content": "这里是重写后的 Markdown 文档内容..."
-}
-`;
-      
-      let metadata = {
-        title: "未命名归档",
-        description: "无描述",
-        tags: ["归档"],
-        importance: 1,
-        content: conversationText // Fallback to raw text if generation fails
-      };
+摘要：`;
 
       try {
-        const response = await this.llm.chat([{ role: 'user', content: archivePrompt }], undefined, undefined, "Memory-Archive");
-        const rawRes = response.content || "{}";
-        const jsonMatch = rawRes.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            metadata = JSON.parse(jsonMatch[0]);
-        }
+          const response = await this.llm.chat([{ role: 'user', content: prompt }], undefined, undefined, `Memory-Summarize-${role}`);
+          return response.content?.trim() || `${role} message`;
       } catch (e) {
-        Logger.warn("Memory", "Failed to generate archive metadata, using default.");
+          Logger.warn("Memory", `Failed to summarize ${role} content`);
+          return `${role} message`;
       }
-
-      // 3. Construct File Path
-      // Format: short-memorys/YYYY-MM-DD/HH/timestamp_id_title.md
-      const now = new Date();
-      const dateStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-      const hourStr = String(now.getHours()).padStart(2, '0');
-      const timeStr = now.toISOString().replace(/[:.]/g, '').split('T')[1].substring(0, 6); // HHMMSS
-      const id = this.generateId();
-      
-      const dirPath = path.join(this.shortTermDir, dateStr, hourStr);
-      if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath, { recursive: true });
-      }
-
-      const fileName = `${dateStr.replace(/-/g, '')}${timeStr}_${id}_${metadata.title.replace(/[\/\\:\*\?"<>\|]/g, '_')}.md`;
-      const filePath = path.join(dirPath, fileName);
-
-      // 4. Create Markdown Content
-      const mdContent = `---
-id: "${id}"
-type: "short_term_archive"
-created_at: "${now.toISOString()}"
-title: "${metadata.title}"
-description: "${metadata.description}"
-tags: ${JSON.stringify(metadata.tags)}
-importance: ${metadata.importance}
----
-
-## 知识归档
-
-${metadata.content}
-`;
-
-      // 5. Write File
-      fs.writeFileSync(filePath, mdContent);
-      Logger.info("Memory", `Archived ${messages.length} messages to ${filePath}`);
-
-    } catch (e: any) {
-      Logger.error("Memory", `Failed to archive messages: ${e.message}`);
-    }
   }
 
-  async getShortTermSummaries(): Promise<any[]> {
-    const summaries: any[] = [];
-    
-    // Recursive function to walk directories
-    const walk = (dir: string) => {
-      if (!fs.existsSync(dir)) return;
-      
-      const files = fs.readdirSync(dir);
-      for (const file of files) {
-        const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
-        
-        if (stat.isDirectory()) {
-          walk(filePath);
-        } else if (file.endsWith('.md')) {
-          try {
-            const content = fs.readFileSync(filePath, 'utf-8');
-            // Extract frontmatter
-            const idMatch = content.match(/id: "(.*?)"/);
-            const titleMatch = content.match(/title: "(.*?)"/);
-            const descMatch = content.match(/description: "(.*?)"/);
-            const tagsMatch = content.match(/tags: (\[.*?\])/);
-            
-            if (idMatch && titleMatch) {
-              summaries.push({
-                id: idMatch[1],
-                title: titleMatch[1],
-                description: descMatch ? descMatch[1] : "",
-                tags: tagsMatch ? JSON.parse(tagsMatch[1]) : [],
-                source: 'short_term',
-                type: 'short_term_archive'
-              });
-            }
-          } catch (e) {
-            Logger.warn("Memory", `Failed to parse short-term memory file ${file}: ${e}`);
-          }
-        }
-      }
-    };
-
-    walk(this.shortTermDir);
-    return summaries;
+  async summarizeUserMessage(content: string, turnId: number): Promise<MemoryUnit> {
+      const summary = await this.generateSummary('user', content);
+      const unit: MemoryUnit = {
+          id: Math.random().toString(36).substring(2, 10),
+          turnId,
+          role: 'user',
+          summary,
+          content,
+          timestamp: Date.now()
+      };
+      this.addMemory(unit);
+      return unit;
   }
 
-  async readShortTermMemory(id: string): Promise<string | null> {
-    let foundContent: string | null = null;
-    
-    const walk = (dir: string) => {
-      if (foundContent) return; // Stop if found
-      if (!fs.existsSync(dir)) return;
-
-      const files = fs.readdirSync(dir);
-      for (const file of files) {
-        const filePath = path.join(dir, file);
-        const stat = fs.statSync(filePath);
-        
-        if (stat.isDirectory()) {
-          walk(filePath);
-        } else if (file.endsWith('.md')) {
-          try {
-            const content = fs.readFileSync(filePath, 'utf-8');
-            if (content.includes(`id: "${id}"`)) {
-               foundContent = content;
-               return;
-            }
-          } catch (e) {
-            // ignore
-          }
-        }
-      }
-    };
-
-    walk(this.shortTermDir);
-    return foundContent;
+  async summarizeToolOutput(toolName: string, args: any, output: string, turnId: number, relatedId?: string): Promise<MemoryUnit> {
+      const summary = await this.generateSummary('tool', output, `Tool: ${toolName}, Args: ${JSON.stringify(args)}`);
+      const unit: MemoryUnit = {
+          id: Math.random().toString(36).substring(2, 10),
+          turnId,
+          role: 'tool',
+          summary,
+          content: output,
+          toolName,
+          toolArgs: args,
+          timestamp: Date.now(),
+          relatedId
+      };
+      this.addMemory(unit);
+      return unit;
   }
 
-  async consolidateMemory(history: ChatCompletionMessageParam[], maxHistoryLength: number, keepRecentCount: number) {
-    // If history is within limits, do nothing
-    if (history.length <= maxHistoryLength) return;
+  async summarizeAssistantReply(content: string, turnId: number): Promise<MemoryUnit> {
+      const summary = await this.generateSummary('assistant', content);
+      const unit: MemoryUnit = {
+          id: Math.random().toString(36).substring(2, 10),
+          turnId,
+          role: 'assistant',
+          summary,
+          content,
+          timestamp: Date.now()
+      };
+      this.addMemory(unit);
+      return unit;
+  }
 
-    Logger.info("Memory", `History length (${history.length}) exceeded limit (${maxHistoryLength}). Initiating memory consolidation...`);
+  async retrieveContext(userQuery: string): Promise<string> {
+    if (this.memoryStream.length === 0) return "";
 
-    // 1. Identify the chunk to prune (skip system prompt at index 0)
-    // We want to process EVERYTHING except the System Prompt and the Recent Context
-    const startIndex = 1; 
-    const endIndex = history.length - keepRecentCount;
-    
-    // Safety check
-    if (startIndex >= endIndex) {
-       Logger.warn("Memory", "History is full but recent buffer takes up all space. Cannot prune yet.");
-       return;
-    }
+    const summaryList = this.memoryStream.map((u, index) => {
+        return `${index}. [${u.role.toUpperCase()}] (Turn ${u.turnId}) ${u.summary} (ID: ${u.id})`;
+    }).join('\n');
 
-    const messagesToPrune = history.slice(startIndex, endIndex);
+    const prompt = `
+你是一个记忆检索专家。基于用户的最新问题，从历史摘要中找出**必须回溯细节**才能回答的条目。
+用户问题：${userQuery}
 
-    // 2. Prepare text for summarization
-    const conversationText = messagesToPrune.map(m => {
-      const content = typeof m.content === 'string' ? m.content : '[Complex Content]';
-      return `${m.role.toUpperCase()}: ${content}`;
-    }).join('\n\n');
+历史摘要：
+${summaryList}
 
-    // 3. Prompt for LLM
-    const consolidationPrompt = `
-你是一个 AI Agent 的“工作记忆”管理器。
-你的唯一任务是维护一个极简的、仅与**当前未完成任务**相关的上下文摘要。
-
-当前累计摘要（可能包含已过时的信息）：
-"""
-${this.summary}
-"""
-
-新对话片段（刚刚发生的交互）：
-"""
-${conversationText}
-"""
-
-核心指令：
-1. **聚焦当前任务**：仅保留为了完成“当前正在进行的任务”所必须的信息（如：当前需求、已确定的参数、下一步计划）。
-2. **遗忘已完成**：如果之前的任务已经完成并归档（Archive），请在摘要中果断删除相关细节，只保留一句简短的“已完成X任务”作为背景。
-3. **极度精简**：你的目标是让 Agent 在没有历史记录的情况下，仅凭这段摘要就能继续工作。不要保留任何冗余信息。
+判断标准：
+1. 如果摘要提到“代码”、“文件内容”、“错误日志”，且与问题相关，必须选中。
+2. 只选最有用的 1-3 条。不要选无关的闲聊。
+3. 如果没有相关的，返回空列表。
 
 输出格式 (JSON):
 {
-  "updated_summary": "..."
+  "relevant_ids": ["id1", "id2"]
 }
 `;
 
-    // 4. Call LLM
+    let relevantIds: string[] = [];
     try {
-      const response = await this.llm.chat([{ role: 'user', content: consolidationPrompt }], undefined, undefined, "Memory-Consolidation");
-      const rawResult = response.content || "{}";
-      
-      // Clean up markdown code blocks if present
-      const jsonStr = rawResult.replace(/```json/g, '').replace(/```/g, '').trim();
-      const result = JSON.parse(jsonStr);
-
-      // 5. Apply Updates
-      
-      // A. Update Summary
-      if (result.updated_summary) {
-        this.summary = result.updated_summary;
-        this.broadcastUpdate();
-      }
-
-      // 6. Prune History
-      const prunedCount = endIndex - startIndex;
-      
-      // Archive BEFORE pruning
-      // Use the OLD summary for context when archiving this chunk
-      await this.archiveMessages(messagesToPrune, this.summary);
-      
-      history.splice(startIndex, prunedCount);
-      
-      Logger.info("Memory", `Consolidated ${prunedCount} messages. New History Length: ${history.length}`);
-      Logger.historyStats(history.length, maxHistoryLength);
-
-    } catch (e: any) {
-      Logger.error("Memory", `Consolidation failed: ${e.message}`);
+        const response = await this.llm.chat([{ role: 'user', content: prompt }], undefined, undefined, "Memory-Retrieve-ShortTerm");
+        const raw = response.content || "{}";
+        const jsonMatch = raw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (Array.isArray(parsed.relevant_ids)) {
+                relevantIds = parsed.relevant_ids;
+            }
+        }
+    } catch (e) {
+        Logger.warn("Memory", "Failed to retrieve relevant context");
     }
-  }
 
-  getPrompt(): string {
-    if (!this.summary) return "";
+    if (relevantIds.length === 0) return "";
 
-    return `
-=== 记忆摘要 (全局上下文) ===
-以下是目前为止整个对话的精简摘要。请使用它来保持长期的连贯性。
-${this.summary}
-=======================================
+    const contextParts = relevantIds.map(id => {
+        const unit = this.memoryStream.find(u => u.id === id);
+        if (!unit) return "";
+        return `
+=== Context Recall (Turn ${unit.turnId}) ===
+Type: ${unit.role}
+Summary: ${unit.summary}
+Content:
+${unit.content}
+=========================================
 `;
-  }
+    });
 
-  private broadcastUpdate() {
-    // Send summary to UI
-    Logger.contextUpdate([{ source: 'conversation_summary', content: this.summary, timestamp: Date.now() }]);
+    Logger.info("Memory", `Retrieved ${relevantIds.length} context units for query: "${userQuery}"`);
+    return contextParts.join('\n');
   }
 }
