@@ -5,6 +5,9 @@ import { Planner, Plan } from './planner.js';
 import { Logger } from './logger.js';
 import { Memoryer } from './memoryer.js';
 import { MemoryManager } from './context-manager.js';
+import { ScratchpadManager } from './scratchpad.js';
+import { TaskManager } from './task-manager.js';
+import { RunningSummaryManager } from './running-summary.js';
 
 const SYSTEM_PROMPT = `
 你是一个拥有多种工具的高级 AI Agent。
@@ -38,6 +41,9 @@ export class Agent {
   private planner: Planner;
   private memoryer: Memoryer;
   private memoryManager: MemoryManager;
+  private scratchpadManager: ScratchpadManager;
+  private taskManager: TaskManager;
+  private runningSummaryManager: RunningSummaryManager;
   private systemMessage: ChatCompletionMessageParam;
   private tools: ChatCompletionTool[] = [];
   private toolMap: Map<string, MCPManager> = new Map();
@@ -49,6 +55,9 @@ export class Agent {
     this.planner = new Planner(llm);
     this.memoryer = new Memoryer(llm);
     this.memoryManager = new MemoryManager(llm);
+    this.scratchpadManager = new ScratchpadManager();
+    this.taskManager = new TaskManager();
+    this.runningSummaryManager = new RunningSummaryManager();
 
     this.systemMessage = {
       role: "system",
@@ -59,7 +68,14 @@ export class Agent {
   async initialize() {
     this.tools = [];
     this.toolMap.clear();
+    // this.scratchpadManager.clear(); // Removed: State persists across sessions if managed externally, or resets per task
+    // We don't want to clear global state here as it might be a resumed session in future.
+    // For now, in-memory is volatile so it clears on restart anyway.
 
+    // 0. Add Built-in Tools
+    this.tools.push(this.scratchpadManager.getToolDefinition());
+    this.tools.push(this.runningSummaryManager.getToolDefinition());
+    
     // 1. Add MCP Tools
     for (const mcp of this.mcps) {
       try {
@@ -76,10 +92,10 @@ export class Agent {
           this.toolMap.set(tool.name, mcp);
         }
       } catch (e) {
-        Logger.error("Agent", `Failed to list tools from one of the MCP servers: ${e}`);
+        Logger.error("Agent", `从 MCP 服务器获取工具列表失败: ${e}`);
       }
     }
-    Logger.info("Agent", `Initialized with tools: ${this.tools.map(t => (t as any).function.name).join(', ')}`);
+    Logger.info("Agent", `初始化工具: ${this.tools.map(t => (t as any).function.name).join(', ')}`);
 
     // 2. Discover Available Skills (Layer 1 Metadata)
     try {
@@ -107,30 +123,31 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
 动作：调用 \`read_skill("git-code-review")\`
 `;
           this.systemMessage.content += "\n\n" + skillsBlock;
-          Logger.info("Agent", `Injected ${skillsList.length} skills into System Prompt.`);
+          Logger.info("Agent", `已注入 ${skillsList.length} 个技能到系统提示词。`);
         }
       }
     } catch (e) {
-      Logger.warn("Agent", `Failed to inject skills metadata: ${e}`);
+      Logger.warn("Agent", `注入技能元数据失败: ${e}`);
     }
   }
 
-  async chat(userInput: string): Promise<string> {
-    this.turnId += 1;
-    const currentTurnId = this.turnId;
 
-    // 1. Plan Phase
-    Logger.phase("Planning");
+  /**
+   * Phase 1: Planning
+   * Creates a plan based on user input and available tools.
+   */
+  private async runPlanningPhase(userInput: string, currentTaskId: string): Promise<Plan | null> {
+    Logger.phase("规划阶段");
     
     // List available tools for debugging/visibility
     const availableToolNames = this.tools.map(t => (t as any).function.name);
-    Logger.info("Tools", `Available for planning: ${availableToolNames.join(', ')}`);
+    Logger.info("工具", `可用工具: ${availableToolNames.join(', ')}`);
 
     let plan: Plan | null = null;
     try {
       const planningHistory: ChatCompletionMessageParam[] = [this.systemMessage];
 
-      const dynamicContextForPlan = await this.memoryManager.retrieveContext(userInput);
+      const dynamicContextForPlan = await this.memoryManager.retrieveContext(userInput, currentTaskId);
       if (dynamicContextForPlan) {
         planningHistory.push({ role: "assistant", content: `【短期记忆召回】\n${dynamicContextForPlan}` });
       }
@@ -141,20 +158,305 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
         Logger.plan(plan.reasoning);
         plan.steps.forEach(step => Logger.step(step.id, step.description));
       } else {
-        Logger.plan(`No complex plan needed: ${plan.reasoning}`);
+        Logger.plan(`无需复杂计划: ${plan.reasoning}`);
       }
       
     } catch (e) {
-      Logger.warn("Plan", "Planning failed, falling back to direct execution.");
+      Logger.warn("Plan", "规划失败，回退到直接执行。");
+    }
+    return plan;
+  }
+
+  /**
+   * Builds the context messages for the current turn.
+   */
+  private async buildContextForTurn(
+    userInput: string,
+    currentTaskId: string,
+    currentTask: any,
+    plan: Plan | null,
+    focusQuery: string,
+    lastTurnMessages: ChatCompletionMessageParam[]
+  ): Promise<ChatCompletionMessageParam[]> {
+    const messagesForTurn: ChatCompletionMessageParam[] = [this.systemMessage];
+
+    // 1. 优先注入计划 (作为基准上下文)
+    if (plan && plan.steps && plan.steps.length > 0) {
+      // 获取最新的 Scratchpad 内容
+      const scratchpadContent = this.scratchpadManager.getFormattedContent(currentTaskId);
+      // 获取最新的 Running Summary
+      const runningSummaryContent = this.runningSummaryManager.getFormattedContent(currentTaskId);
+      
+      messagesForTurn.push({
+          role: "system",
+          content: `【执行进度面板】
+当前任务: ${currentTask?.title} (ID: ${currentTaskId})
+
+当前计划:
+${JSON.stringify(plan.steps, null, 2)}
+
+${runningSummaryContent}
+
+${scratchpadContent}
+
+指令：
+1. 请根据下方提供的【记忆回溯资料】、【全局任务白板】和【任务进度摘要】，严格核对上述计划的完成情况。
+2. 明确你当前正处于哪一步骤，不要重复执行已完成的步骤。
+3. 如果本步骤产生了跨步骤需要的关键信息（如ID、路径、结果），请务必调用 'manage_scratchpad' 记录到白板中。
+4. 每当完成一个重要步骤，请务必调用 'update_running_summary' 更新进度摘要。`
+      });
+      
+      Logger.info("Context", `注入全局上下文: 计划, 白板 (${scratchpadContent.length} 字符), 进度摘要 (${runningSummaryContent.length} 字符)`);
+    }
+
+    // 2. 动态上下文检索 (修复 #1: 使用 focusQuery 而非静态 userInput)
+    try {
+      const dynamicContext = await this.memoryManager.retrieveContext(focusQuery, currentTaskId);
+      if (dynamicContext) {
+        // 修复 #4 (修正): 将 Context 作为 user 消息注入，而非 system 消息
+        // 这样模型会将其视为"用户提供的背景资料"，权重更符合预期，且不会混淆系统指令
+        messagesForTurn.push({ 
+          role: "user", 
+          content: `【记忆回溯资料】\n以下是相关的历史信息（之前的工具输出等），供参考：\n${dynamicContext}` 
+        });
+        Logger.info("Context", `注入动态上下文 (Query: "${focusQuery.substring(0, 50)}...")`);
+      }
+    } catch (e) {
+      Logger.warn("Context", "无法检索动态上下文。");
+    }
+
+    // 3. 用户输入 (始终作为任务锚点)
+    // 在 Context 之后，作为明确的指令
+    messagesForTurn.push({ role: "user", content: `【当前指令】\n${userInput}` });
+
+    // 4. 注入上一轮的交互 (修复 #3: 确保连贯性)
+    // 这能让 LLM 清晰地看到"我刚刚做了什么"，比检索更可靠
+    if (lastTurnMessages.length > 0) {
+       messagesForTurn.push(...lastTurnMessages);
+    }
+
+    return messagesForTurn;
+  }
+
+  /**
+   * Executes tools requested by the LLM.
+   * Handles both built-in tools (Scratchpad, RunningSummary) and MCP tools.
+   */
+  private async executeTools(
+    toolCalls: any[], 
+    currentTaskId: string,
+    userInput: string,
+    turnCount: number,
+    currentTurnId: number,
+    executionHistory: ChatCompletionMessageParam[],
+    lastTurnMessages: ChatCompletionMessageParam[]
+  ): Promise<string[]> {
+    const toolSummaries: string[] = [];
+
+    for (const toolCall of toolCalls) {
+      let args;
+      try {
+        args = JSON.parse(toolCall.function.arguments);
+        Logger.toolCall(toolCall.function.name, args);
+      } catch (e) {
+        Logger.error("Tool", `解析参数失败 ${toolCall.function.name}`);
+        const errorMsg = {
+          role: "tool" as const,
+          tool_call_id: toolCall.id,
+          content: "Error: Invalid JSON arguments provided."
+        };
+        executionHistory.push(errorMsg);
+        lastTurnMessages.push(errorMsg);
+        continue;
+      }
+
+      const toolName = toolCall.function.name;
+
+      // Special Logging for execute_code
+      if (toolName === 'execute_code' && args.code) {
+        Logger.code(args.code);
+      }
+
+      // --- Built-in Tools Handling ---
+      
+      // 1. Manage Scratchpad
+      if (toolName === 'manage_scratchpad') {
+        try {
+          const output = this.scratchpadManager.handleToolCall(currentTaskId, args);
+          Logger.toolOutput(output);
+          
+          const toolMsg = {
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: output
+          };
+          executionHistory.push(toolMsg);
+          lastTurnMessages.push(toolMsg);
+          
+          // Summarize to memory
+          this.memoryManager.summarizeToolOutput(toolName, args, output, currentTurnId, currentTaskId, toolCall.id)
+              .catch(e => Logger.warn("Memory", `工具输出摘要失败: ${e}`));
+          
+          toolSummaries.push(`Tool ${toolName} output: ${output}`);
+          continue; 
+        } catch (e: any) {
+           const errorMsg = {
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: `Error updating scratchpad: ${e.message}`
+           };
+           executionHistory.push(errorMsg);
+           lastTurnMessages.push(errorMsg);
+           continue;
+        }
+      }
+
+      // 2. Update Running Summary
+      if (toolName === 'update_running_summary') {
+        try {
+          const output = this.runningSummaryManager.handleToolCall(currentTaskId, args);
+          Logger.toolOutput(output);
+          
+          const toolMsg = {
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: output
+          };
+          executionHistory.push(toolMsg);
+          lastTurnMessages.push(toolMsg);
+
+          // Summarize to memory
+          this.memoryManager.summarizeToolOutput(toolName, args, output, currentTurnId, currentTaskId, toolCall.id)
+              .catch(e => Logger.warn("Memory", `工具输出摘要失败: ${e}`));
+          
+          toolSummaries.push(`Tool ${toolName} output: ${output}`);
+          continue;
+        } catch (e: any) {
+           const errorMsg = {
+              role: "tool" as const,
+              tool_call_id: toolCall.id,
+              content: `Error updating running summary: ${e.message}`
+           };
+           executionHistory.push(errorMsg);
+           lastTurnMessages.push(errorMsg);
+           continue;
+        }
+      }
+
+      // --- MCP Tools Handling ---
+      
+      const mcp = this.toolMap.get(toolName);
+      if (!mcp) {
+         Logger.error("Tool", `${toolName} 在任何 MCP 服务器中均未找到。`);
+         const errorMsg = {
+          role: "tool" as const,
+          tool_call_id: toolCall.id,
+          content: `Error: Tool ${toolName} not found.`
+        };
+        executionHistory.push(errorMsg);
+        lastTurnMessages.push(errorMsg);
+        continue;
+      }
+
+      try {
+        let contentText = "";
+        
+        // Intercept search_memories to use Memoryer for deep retrieval
+        if (toolName === 'search_memories') {
+           const rawResult = await mcp.callTool(toolName, args);
+           const rawSummaries = (rawResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+           try {
+             let summaries: any[] = [];
+             try {
+                summaries = JSON.parse(rawSummaries);
+                if (!Array.isArray(summaries)) summaries = [];
+                // Mark as long_term
+                summaries = summaries.map(s => ({ ...s, source: 'long_term' }));
+             } catch (e) {
+                Logger.warn("Agent", "search_memories 返回了非 JSON 格式数据");
+             }
+             
+             // Call Memoryer to refine and fetch details
+             const readMemoryMcp = this.toolMap.get('read_memory');
+             if (readMemoryMcp) {
+               contentText = await this.memoryer.retrieve(args.query || "", summaries, readMemoryMcp, this.memoryManager);
+             } else {
+               contentText = rawSummaries; // Fallback if read_memory not found
+             }
+           } catch (e) {
+             contentText = rawSummaries;
+           }
+
+        } else if (toolName === 'read_skill') {
+           Logger.info("Skill", `正在加载技能指令: ${args.name}`);
+           const toolResult = await mcp.callTool(toolName, args);
+           contentText = (toolResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+        } else {
+           const toolResult = await mcp.callTool(toolName, args);
+           contentText = (toolResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
+        }
+        
+        Logger.toolOutput(contentText);
+
+        // Summarize to MemoryManager
+        const memoryUnit = await this.memoryManager.summarizeToolOutput(toolName, args, contentText, currentTurnId, currentTaskId, toolCall.id)
+            .catch(e => {
+                Logger.warn("Memory", `工具输出摘要失败: ${e}`);
+                return null;
+            });
+        
+        if (memoryUnit) {
+            toolSummaries.push(`Tool ${toolName} output: ${memoryUnit.summary}`);
+        }
+
+        // Record to History
+        const toolMsg = {
+          role: "tool" as const,
+          tool_call_id: toolCall.id,
+          content: contentText || "(Tool executed successfully with no text output)"
+        };
+        executionHistory.push(toolMsg);
+        lastTurnMessages.push(toolMsg);
+
+      } catch (error: any) {
+        Logger.error("Tool", `执行失败: ${error.message}`);
+        const errorMsg = {
+          role: "tool" as const,
+          tool_call_id: toolCall.id,
+          content: `Error executing tool: ${error.message}`
+        };
+        executionHistory.push(errorMsg);
+        lastTurnMessages.push(errorMsg);
+      }
+    }
+
+    return toolSummaries;
+  }
+
+  async chat(userInput: string): Promise<string> {
+    this.turnId += 1;
+    const currentTurnId = this.turnId;
+    
+    // Ensure we have a task ID
+    const currentTaskId = this.taskManager.getCurrentTaskId();
+    const currentTask = this.taskManager.getCurrentTask();
+
+    // 1. Plan Phase
+    const plan = await this.runPlanningPhase(userInput, currentTaskId);
+
+    // Update Task Title if provided by Planner
+    if (plan && plan.taskTitle) {
+       this.taskManager.updateTaskTitle(currentTaskId, plan.taskTitle);
+       Logger.info("Task", `Updated task title to: "${plan.taskTitle}"`);
     }
 
     // 2. Execution Phase
-    Logger.phase("Execution");
+    Logger.phase("执行阶段");
 
     try {
-      await this.memoryManager.summarizeUserMessage(userInput, currentTurnId);
+      await this.memoryManager.summarizeUserMessage(userInput, currentTurnId, currentTaskId);
     } catch (e) {
-      Logger.warn("Agent", "Failed to summarize user input for short-term memory.");
+      Logger.warn("Agent", "用户输入短期记忆摘要失败。");
     }
 
     // executionHistory 仅用于记录完整对话历史供后续参考/验证，不再直接作为 LLM 上下文
@@ -173,148 +475,59 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
     let turnCount = 0;
     const MAX_TURNS = 15;
 
+    // 修复 #3: 保留上一轮的完整交互作为"即时上下文"，防止思维链断裂
+    let lastTurnMessages: ChatCompletionMessageParam[] = [];
+    // 修复 #1: 动态关注点 Query，初始为用户输入，后续会追加工具执行的关键信息
+    let focusQuery = userInput;
+
     while (turnCount < MAX_TURNS) {
       turnCount++;
-      Logger.turn(turnCount, "Thinking...");
+      Logger.turn(turnCount, "思考中...");
 
-      // --- 构建本轮 LLM 上下文 (完全基于动态检索) ---
-      // 每一轮都重新构建 Prompt，只包含 System、Plan、检索到的上下文和用户原始输入
-      const messagesForTurn: ChatCompletionMessageParam[] = [this.systemMessage];
-
-      // 1. 优先注入计划 (作为基准上下文)
-      if (plan && plan.steps && plan.steps.length > 0) {
-        messagesForTurn.push({
-            role: "system",
-            content: `当前计划:\n${JSON.stringify(plan.steps, null, 2)}\n\n请严格遵循上述计划执行。`
-        });
-      }
-
-      // 2. 动态上下文检索
-      try {
-        const dynamicContext = await this.memoryManager.retrieveContext(userInput);
-        if (dynamicContext) {
-          messagesForTurn.push({ 
-            role: "system", 
-            content: `【当前动态上下文】\n以下是根据你的请求检索到的相关历史信息（包含之前的工具执行结果等）：\n${dynamicContext}\n\n请基于上述上下文继续执行任务。` 
-          });
-          Logger.info("Context", `Injected dynamic context for turn ${turnCount}`);
-        }
-      } catch (e) {
-        Logger.warn("Context", "Failed to retrieve dynamic context.");
-      }
-
-      // 3. 用户输入 (任务锚点)
-      messagesForTurn.push({ role: "user", content: userInput });
+      // --- 构建本轮 LLM 上下文 ---
+      const messagesForTurn = await this.buildContextForTurn(
+        userInput, 
+        currentTaskId, 
+        currentTask, 
+        plan, 
+        focusQuery, 
+        lastTurnMessages
+      );
 
       const response = await this.llm.chat(messagesForTurn, this.tools, undefined, "Agent");
       
+      // 清空上一轮缓存，准备记录本轮
+      lastTurnMessages = []; 
+
       // Log the immediate response from Assistant
       if (response.content) {
         Logger.llmResponse(response.role, response.content);
-        this.memoryManager.summarizeAssistantReply(response.content, turnCount).catch(e => {});
+        // Fix: Use currentTurnId (global) instead of turnCount (local) for consistency
+        this.memoryManager.summarizeAssistantReply(response.content, currentTurnId, currentTaskId).catch(e => {});
       }
 
       // 记录到历史数组 (Ref Only)
       executionHistory.push(response);
+      // 记录到即时上下文缓存
+      lastTurnMessages.push(response);
 
       // Check if LLM wants to call a tool
       if (response.tool_calls && response.tool_calls.length > 0) {
-        for (const toolCall of response.tool_calls) {
-          
-          let args;
-          try {
-            args = JSON.parse((toolCall as any).function.arguments);
-            Logger.toolCall((toolCall as any).function.name, args);
-          } catch (e) {
-            Logger.error("Tool", `Failed to parse arguments for ${(toolCall as any).function.name}`);
-            const errorMsg = {
-              role: "tool" as const,
-              tool_call_id: toolCall.id,
-              content: "Error: Invalid JSON arguments provided."
-            };
-            executionHistory.push(errorMsg); // Record error
-            continue;
-          }
+        const toolSummaries = await this.executeTools(
+            response.tool_calls,
+            currentTaskId,
+            userInput,
+            turnCount,
+            currentTurnId, // Pass global turn ID
+            executionHistory,
+            lastTurnMessages
+        );
 
-          const toolName = (toolCall as any).function.name;
-
-          // Special Logging for execute_code
-          if (toolName === 'execute_code' && args.code) {
-            Logger.code(args.code);
-          }
-
-          // Find correct MCP manager for this tool
-          const mcp = this.toolMap.get(toolName);
-          if (!mcp) {
-             Logger.error("Tool", `${toolName} not found in any MCP server.`);
-             const errorMsg = {
-              role: "tool" as const,
-              tool_call_id: toolCall.id,
-              content: `Error: Tool ${toolName} not found.`
-            };
-            executionHistory.push(errorMsg);
-            continue;
-          }
-
-          try {
-            let contentText = "";
-            
-            // Intercept search_memories to use Memoryer for deep retrieval
-            if (toolName === 'search_memories') {
-               const rawResult = await mcp.callTool(toolName, args);
-               const rawSummaries = (rawResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
-               try {
-                 let summaries: any[] = [];
-                 try {
-                    summaries = JSON.parse(rawSummaries);
-                    if (!Array.isArray(summaries)) summaries = [];
-                    // Mark as long_term
-                    summaries = summaries.map(s => ({ ...s, source: 'long_term' }));
-                 } catch (e) {
-                    Logger.warn("Agent", "search_memories returned non-JSON");
-                 }
-                 
-                 // Call Memoryer to refine and fetch details
-                 const readMemoryMcp = this.toolMap.get('read_memory');
-                 if (readMemoryMcp) {
-                   contentText = await this.memoryer.retrieve(args.query || "", summaries, readMemoryMcp, this.memoryManager);
-                 } else {
-                   contentText = rawSummaries; // Fallback if read_memory not found
-                 }
-               } catch (e) {
-                 contentText = rawSummaries;
-               }
-
-            } else if (toolName === 'read_skill') {
-               Logger.info("Skill", `正在加载技能指令: ${args.name}`);
-               const toolResult = await mcp.callTool(toolName, args);
-               contentText = (toolResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
-            } else {
-               const toolResult = await mcp.callTool(toolName, args);
-               contentText = (toolResult as any).content.map((c: any) => c.type === 'text' ? c.text : '').join("\n");
-            }
-            
-            Logger.toolOutput(contentText);
-
-            // 重要：工具输出必须被摘要进入 MemoryManager，这样下一轮 retrieveContext 才能检索到它
-            this.memoryManager.summarizeToolOutput(toolName, args, contentText, turnCount, toolCall.id)
-                .catch(e => Logger.warn("Memory", `Failed to summarize tool output: ${e}`));
-
-            // 记录到历史 (Ref Only)
-            executionHistory.push({
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content: contentText || "(Tool executed successfully with no text output)"
-            });
-          } catch (error: any) {
-            Logger.error("Tool", `Execution failed: ${error.message}`);
-            executionHistory.push({
-              role: "tool",
-              tool_call_id: toolCall.id,
-              content: `Error executing tool: ${error.message}`
-            });
-          }
+        // 修复 #1: 更新 focusQuery
+        if (toolSummaries.length > 0) {
+            focusQuery = `${userInput}\n[Recent Context]: ${toolSummaries.join('; ')}`;
         }
+
       } else {
         // No tool calls, this is the final answer
         finalAnswer = response.content || "";
@@ -324,4 +537,5 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
 
     return finalAnswer;
   }
+
 }

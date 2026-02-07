@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nora Agent Live Inspector</title>
+    <title>Nora 智能体实时监控面板</title>
     <style>
         :root {
             --bg-color: #1e1e1e;
@@ -80,38 +80,111 @@
         }
 
         #context-panel {
-            width: 300px;
+            width: 350px; /* Slightly wider for tabs */
             background: var(--panel-bg);
             display: flex;
-            flex-direction: column;
+            flex-direction: row; /* Horizontal layout for Tab bar + Content */
             border-left: 1px solid var(--border-color);
         }
 
-        .context-header {
-            padding: 10px 15px;
+        /* Vertical Tabs Sidebar */
+        .context-tabs {
+            width: 48px;
             background: #2c2c2d;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 10px;
+            flex-shrink: 0;
+        }
+
+        .tab-item {
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            padding: 15px 10px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            border-left: 3px solid transparent;
+            font-size: 12px;
+            letter-spacing: 4px;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .tab-item:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.05);
+        }
+
+        .tab-item.active {
+            color: var(--accent-blue);
+            border-left: 3px solid var(--accent-blue);
+            background: rgba(0,0,0,0.2);
+            font-weight: bold;
+        }
+
+        /* Tab Content Area */
+        .context-pages {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .tab-page {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .tab-page.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page-header {
+            padding: 10px 15px;
+            background: #252526;
             border-bottom: 1px solid var(--border-color);
             font-weight: bold;
             color: var(--accent-yellow);
             font-size: 12px;
             letter-spacing: 0.5px;
             text-transform: uppercase;
+            flex-shrink: 0;
         }
 
-        #context-list {
-            padding: 10px;
-            overflow-y: auto;
+        .page-content {
             flex: 1;
+            overflow-y: auto;
+            padding: 10px;
         }
 
+        .code-block {
+            font-size: 11px;
+            white-space: pre-wrap;
+            font-family: var(--font-mono);
+        }
+
+        /* Hide original context headers/list styles that conflict */
+        .context-header { display: none; } /* We use .page-header now */
+        
+        /* Adjust Context List for new container */
+        #context-list {
+            padding: 0; /* Remove padding as .page-content has it */
+        }
+        
         .context-item {
-            background: rgba(0, 0, 0, 0.2);
-            border-left: 2px solid var(--accent-blue);
-            padding: 10px;
             margin-bottom: 8px;
-            border-radius: 0 4px 4px 0;
-            font-size: 12px;
-            color: var(--text-primary);
         }
         
         .context-meta {
@@ -458,8 +531,8 @@
 <body>
 
 <div class="header">
-    <div class="header-title">NORA AGENT INSPECTOR</div>
-    <div id="status" class="status-badge status-disconnected">Waiting...</div>
+    <div class="header-title">NORA 智能体监控</div>
+    <div id="status" class="status-badge status-disconnected">等待连接...</div>
 </div>
 
 <div id="main-layout">
@@ -467,12 +540,39 @@
         <!-- Logs will appear here -->
     </div>
     <div id="context-panel">
-        <div class="context-header">
-            WORKING MEMORY
-            <span id="history-stats" style="float: right; font-size: 0.8em; color: #888;"></span>
+        <div class="context-tabs">
+            <div class="tab-item active" data-target="tab-scratchpad">白板</div>
+            <div class="tab-item" data-target="tab-summary">摘要</div>
+            <div class="tab-item" data-target="tab-memory">记忆</div>
         </div>
-        <div id="context-list">
-            <div class="context-empty">No active context</div>
+
+        <div class="context-pages">
+            <!-- Page 1: Scratchpad -->
+            <div id="tab-scratchpad" class="tab-page active">
+                <div class="page-header" style="color: var(--accent-yellow);">全局任务白板 (SCRATCHPAD)</div>
+                <div id="scratchpad-content" class="page-content code-block" style="color: var(--accent-yellow);">
+                    <div class="context-empty">空</div>
+                </div>
+            </div>
+
+            <!-- Page 2: Summary -->
+            <div id="tab-summary" class="tab-page">
+                <div class="page-header" style="color: var(--accent-cyan);">任务进度摘要 (SUMMARY)</div>
+                <div id="running-summary-content" class="page-content code-block" style="color: var(--accent-cyan);">
+                    <div class="context-empty">空</div>
+                </div>
+            </div>
+
+            <!-- Page 3: Memory -->
+            <div id="tab-memory" class="tab-page">
+                <div class="page-header">
+                    短期记忆 (WORKING MEMORY)
+                    <span id="history-stats" style="float: right; font-size: 0.8em; color: #888;"></span>
+                </div>
+                <div id="context-list" class="page-content">
+                    <div class="context-empty">无活跃上下文</div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -480,6 +580,8 @@
 <script>
     const stream = document.getElementById('log-stream');
     const contextList = document.getElementById('context-list');
+    const scratchpadEl = document.getElementById('scratchpad-content');
+    const runningSummaryEl = document.getElementById('running-summary-content');
     const statusEl = document.getElementById('status');
     let socket;
 
@@ -521,7 +623,7 @@
                 // Special Card Layout for Plan
                 div.className = 'entry plan';
                 content.innerHTML = `
-                    <span class="plan-label">Plan Strategy (Output)</span>
+                    <span class="plan-label">规划策略 (Plan Strategy)</span>
                     <div class="plan-reasoning">${log.message}</div>
                 `;
                 // Plan entries are usually attached to a previous context, so we might want to hide timestamp or keep it
@@ -529,7 +631,7 @@
                 break;
 
             case 'step':
-                content.innerHTML = `<span class="step-id">Step ${log.id}:</span> ${log.message}`;
+                content.innerHTML = `<span class="step-id">步骤 ${log.id}:</span> ${log.message}`;
                 break;
 
             case 'tool':
@@ -541,11 +643,11 @@
                     // Let's render a minimal badge instead.
                     
                     const rationale = log.args && log.args.rationale ? log.args.rationale : '';
-                    const rationaleHtml = rationale ? `<div class="tool-args" style="margin-top:5px; color:#98c379; font-style:italic;">Target: ${escapeHtml(rationale)}</div>` : '';
+                    const rationaleHtml = rationale ? `<div class="tool-args" style="margin-top:5px; color:#98c379; font-style:italic;">目标: ${escapeHtml(rationale)}</div>` : '';
 
                     content.innerHTML = `
                         <div class="tool-header">
-                            <span class="badge-tool">TOOL CALL</span>
+                            <span class="badge-tool">工具调用</span>
                             <span class="tool-name">${log.name}</span>
                         </div>
                         ${rationaleHtml}
@@ -553,7 +655,7 @@
                 } else {
                     content.innerHTML = `
                         <div class="tool-header">
-                            <span class="badge-tool">TOOL CALL</span>
+                            <span class="badge-tool">工具调用</span>
                             <span class="tool-name">${log.name}</span>
                         </div>
                         <div class="tool-args">${JSON.stringify(log.args, null, 2)}</div>
@@ -575,7 +677,7 @@
                 
                 const summary = document.createElement('div');
                 summary.className = 'llm-input-summary';
-                summary.innerHTML = `<span class="toggle-icon">▶</span> <span class="badge-llm">LLM INPUT</span> ${log.messages.length} Messages`;
+                summary.innerHTML = `<span class="toggle-icon">▶</span> <span class="badge-llm">LLM 输入</span> ${log.messages.length} 条消息`;
                 
                 const details = document.createElement('div');
                 details.className = 'llm-input-details collapsed';
@@ -610,7 +712,7 @@
                 
                 const codeSummary = document.createElement('div');
                 codeSummary.className = 'tool-output-summary'; // Reuse style
-                codeSummary.innerHTML = `<span class="toggle-icon" style="margin-right: 5px;">▶</span> <span class="log-prefix">[Execute Code]</span>`;
+                codeSummary.innerHTML = `<span class="toggle-icon" style="margin-right: 5px;">▶</span> <span class="log-prefix">[代码执行]</span>`;
                 
                 const codeDetails = document.createElement('div');
                 codeDetails.className = 'tool-output-details'; // Reuse style
@@ -638,24 +740,24 @@
 
             case 'final-answer':
                 content.innerHTML = `
-                    <span class="final-answer-label">Final Answer</span>
+                    <span class="final-answer-label">最终回答 (Final Answer)</span>
                     <div>${escapeHtml(log.message)}</div>
                 `;
                 break;
 
             case 'llm-usage':
                 div.className = 'entry usage';
-                const source = log.source || 'Unknown';
+                const source = log.source || '未知';
                 content.innerHTML = `
-                    <span class="usage-badge">TOKEN USAGE</span>
+                    <span class="usage-badge">TOKEN 消耗</span>
                     <span class="usage-divider">·</span>
                     <span class="usage-source">${source}</span>
                     <span class="usage-divider">·</span>
-                    <span class="usage-item">Prompt: <strong>${log.usage.prompt_tokens}</strong></span>
+                    <span class="usage-item">提示词: <strong>${log.usage.prompt_tokens}</strong></span>
                     <span class="usage-divider">·</span>
-                    <span class="usage-item">Completion: <strong>${log.usage.completion_tokens}</strong></span>
+                    <span class="usage-item">补全: <strong>${log.usage.completion_tokens}</strong></span>
                     <span class="usage-divider">·</span>
-                    <span class="usage-item total">Total: <strong>${log.usage.total_tokens}</strong></span>
+                    <span class="usage-item total">总计: <strong>${log.usage.total_tokens}</strong></span>
                 `;
                 break;
 
@@ -666,11 +768,11 @@
             default: // info, success, warn, error
                 if (log.prefix === 'ToolOutput') {
                     // Check if previous log was code execution
-                    let label = '[ToolOutput]';
+                    let label = '[工具输出]';
                     let labelClass = 'log-prefix';
                     
                     if (lastLogType === 'code') {
-                        label = '[Execution Result]';
+                        label = '[执行结果]';
                         labelClass = 'log-prefix execution-result';
                     }
 
@@ -730,7 +832,7 @@
         contextList.innerHTML = '';
         
         if (!items || items.length === 0) {
-            contextList.innerHTML = '<div class="context-empty">No active context</div>';
+            contextList.innerHTML = '<div class="context-empty">无活跃上下文</div>';
             return;
         }
 
@@ -742,10 +844,10 @@
             const summaryDiv = document.createElement('div');
             summaryDiv.innerHTML = `
                 <div class="context-meta">
-                    <span class="context-source">${item.source || 'unknown'}</span>
+                    <span class="context-source">${item.source || '未知'}</span>
                     <span class="context-time">${formatTime(new Date(item.timestamp))}</span>
                 </div>
-                <div class="context-content" style="cursor: pointer;" title="Click to toggle details">
+                <div class="context-content" style="cursor: pointer;" title="点击展开详情">
                     <span class="toggle-icon">▶</span> ${escapeHtml(item.content)}
                 </div>
             `;
@@ -761,7 +863,7 @@
             detailsDiv.style.whiteSpace = 'pre-wrap';
             detailsDiv.style.maxHeight = '300px';
             detailsDiv.style.overflowY = 'auto';
-            detailsDiv.textContent = item.fullContent || '(No details)';
+            detailsDiv.textContent = item.fullContent || '(无详情)';
 
             // Toggle logic
             summaryDiv.querySelector('.context-content').onclick = () => {
@@ -780,13 +882,13 @@
         socket = new WebSocket('ws://localhost:3000');
 
         socket.onopen = () => {
-            statusEl.textContent = 'CONNECTED';
+            statusEl.textContent = '已连接';
             statusEl.className = 'status-badge status-connected';
-            addSystemLog('Connected to Live Server');
+            addSystemLog('已连接到实时日志服务器');
         };
 
         socket.onclose = () => {
-            statusEl.textContent = 'DISCONNECTED';
+            statusEl.textContent = '断开连接';
             statusEl.className = 'status-badge status-disconnected';
             setTimeout(connect, 2000);
         };
@@ -799,8 +901,18 @@
                 if (data.type === 'history-stats') {
                     const statsEl = document.getElementById('history-stats');
                     if (statsEl) {
-                        statsEl.textContent = `History: ${data.count}/${data.max}`;
+                        statsEl.textContent = `历史记录: ${data.count}/${data.max}`;
                     }
+                    return;
+                }
+
+                if (data.type === 'scratchpad-update') {
+                    scratchpadEl.textContent = data.content || '(空)';
+                    return;
+                }
+
+                if (data.type === 'running-summary-update') {
+                    runningSummaryEl.textContent = data.content || '(空)';
                     return;
                 }
 
@@ -822,6 +934,22 @@
         });
         stream.appendChild(el);
     }
+
+    // Tab Switching Logic
+    document.querySelectorAll('.tab-item').forEach(item => {
+        item.addEventListener('click', () => {
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+            // Add active class to clicked tab
+            item.classList.add('active');
+            
+            // Hide all pages
+            document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+            // Show target page
+            const targetId = item.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+        });
+    });
 
     connect();
 </script>

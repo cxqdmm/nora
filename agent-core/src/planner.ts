@@ -12,6 +12,7 @@ export interface PlanStep {
 export interface Plan {
   steps: PlanStep[];
   reasoning: string;
+  taskTitle?: string; // Optional: Suggested title for the task
 }
 
 const PLANNER_SYSTEM_PROMPT = `
@@ -29,6 +30,7 @@ const PLANNER_SYSTEM_PROMPT = `
 \`\`\`json
 {
   "reasoning": "分析是否需要规划以及策略解释...",
+  "taskTitle": "任务名称（可选，仅在任务开始或意图变更时生成，中文）",
   "steps": [
     {
       "id": 1,
@@ -40,13 +42,17 @@ const PLANNER_SYSTEM_PROMPT = `
 \`\`\`
 
 **规则：**
-1. **先判断复杂度**：
+1. **任务命名**：
+   - 必须分析用户的意图，为当前交互生成一个简洁的**中文任务名称**（例如：“重构上下文管理”、“修复登录Bug”）。
+   - 将其放入 JSON 的 \`taskTitle\` 字段中。
+
+2. **先判断复杂度**：
    - 如果用户请求是**简单**的（例如：问候、单一问题、简单的直接命令、闲聊），不需要多步执行，请将 steps 设置为空数组 []，并在 reasoning 中说明“这是一个简单请求，直接回答即可”。
    - 如果用户请求是**复杂**的（需要多步推理、工具组合、查找资料后处理等），则生成具体的 steps。
-2. 保持步骤原子化且清晰。
-3. 确保逻辑顺序（依赖关系隐含在顺序中）。
-4. 不要自己执行步骤，只负责规划。
-5. **记忆检索优先原则**：如果用户的问题涉及“过去”、“回忆”、“记得”、“查找历史”等意图，或者涉及未知的上下文信息，**必须**将调用 search_memories 作为计划的第一步。
+3. 保持步骤原子化且清晰。
+4. 确保逻辑顺序（依赖关系隐含在顺序中）。
+5. 不要自己执行步骤，只负责规划。
+6. **记忆检索优先原则**：如果用户的问题涉及“过去”、“回忆”、“记得”、“查找历史”等意图，或者涉及未知的上下文信息，**必须**将调用 search_memories 作为计划的第一步。
 `;
 
 export class Planner {

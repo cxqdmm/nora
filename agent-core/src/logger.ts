@@ -111,6 +111,14 @@ export class Logger {
     this.broadcast({ type: 'context-update', items });
   }
 
+  static scratchpadUpdate(content: string) {
+    this.broadcast({ type: 'scratchpad-update', content });
+  }
+
+  static runningSummaryUpdate(content: string) {
+    this.broadcast({ type: 'running-summary-update', content });
+  }
+
   static historyStats(count: number, max: number) {
     this.broadcast({ type: 'history-stats', count, max });
   }

@@ -11,6 +11,7 @@ export interface MemoryUnit {
   toolArgs?: any;
   timestamp: number;
   relatedId?: string;
+  taskId: string; // Add taskId
 }
 
 export class MemoryManager {
@@ -47,11 +48,11 @@ export class MemoryManager {
   private async generateSummary(role: 'user' | 'assistant' | 'tool', content: string, extraInfo: string = ""): Promise<string> {
       let systemInstruction = "";
       if (role === 'user') {
-          systemInstruction = "请为用户的这句发言生成一个极其简短的摘要（1句，<20字），保留核心意图和关键实体。";
+          systemInstruction = "请为用户的这句发言生成一个简短的摘要（1句话描述），保留核心意图和关键实体。";
       } else if (role === 'tool') {
-          systemInstruction = "请为这个工具执行结果生成一个极其简短的摘要（1句，<30字）。概括操作对象和结果，包含关键标识符。核心目标是让后续检索能判断是否包含细节。";
+          systemInstruction = "请为这个工具执行结果生成一个简短的摘要（1句话描述）。概括操作对象和结果，包含关键标识符。核心目标是让后续检索能判断是否包含细节。";
       } else {
-          systemInstruction = "请为 AI 助手的这段回复生成一个极其简短的摘要（1句，<20字），保留核心结论或建议。";
+          systemInstruction = "请为 AI 助手的这段回复生成一个简短的摘要（1句话描述），保留核心结论或建议。";
       }
 
       const prompt = `
@@ -68,27 +69,35 @@ ${extraInfo ? `[Info: ${extraInfo}]\n` : ''}${content.substring(0, 500)}
           const response = await this.llm.chat([{ role: 'user', content: prompt }], undefined, undefined, `Memory-Summarize-${role}`);
           return response.content?.trim() || `${role} message`;
       } catch (e) {
-          Logger.warn("Memory", `Failed to summarize ${role} content`);
+          Logger.warn("Memory", `${role} 内容摘要生成失败`);
           return `${role} message`;
       }
   }
 
-  async summarizeUserMessage(content: string, turnId: number): Promise<MemoryUnit> {
-      const summary = await this.generateSummary('user', content);
+  async summarizeUserMessage(content: string, turnId: number, taskId: string): Promise<MemoryUnit> {
+      let summary: string;
+      if (content.length > 100) {
+          summary = await this.generateSummary('user', content);
+      } else {
+          summary = content;
+      }
+      Logger.info("Memory", `用户消息记录 (轮次 ${turnId}): "${summary}"`);
       const unit: MemoryUnit = {
           id: Math.random().toString(36).substring(2, 10),
           turnId,
           role: 'user',
           summary,
           content,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          taskId
       };
       this.addMemory(unit);
       return unit;
   }
 
-  async summarizeToolOutput(toolName: string, args: any, output: string, turnId: number, relatedId?: string): Promise<MemoryUnit> {
+  async summarizeToolOutput(toolName: string, args: any, output: string, turnId: number, taskId: string, relatedId?: string): Promise<MemoryUnit> {
       const summary = await this.generateSummary('tool', output, `Tool: ${toolName}, Args: ${JSON.stringify(args)}`);
+      Logger.info("Memory", `工具输出摘要 (轮次 ${turnId}, 工具: ${toolName}): "${summary}"`);
       const unit: MemoryUnit = {
           id: Math.random().toString(36).substring(2, 10),
           turnId,
@@ -98,30 +107,37 @@ ${extraInfo ? `[Info: ${extraInfo}]\n` : ''}${content.substring(0, 500)}
           toolName,
           toolArgs: args,
           timestamp: Date.now(),
-          relatedId
+          relatedId,
+          taskId
       };
       this.addMemory(unit);
       return unit;
   }
 
-  async summarizeAssistantReply(content: string, turnId: number): Promise<MemoryUnit> {
+  async summarizeAssistantReply(content: string, turnId: number, taskId: string): Promise<MemoryUnit> {
       const summary = await this.generateSummary('assistant', content);
+      Logger.info("Memory", `助手回复摘要 (轮次 ${turnId}): "${summary}"`);
       const unit: MemoryUnit = {
           id: Math.random().toString(36).substring(2, 10),
           turnId,
           role: 'assistant',
           summary,
           content,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          taskId
       };
       this.addMemory(unit);
       return unit;
   }
 
-  async retrieveContext(userQuery: string): Promise<string> {
+  async retrieveContext(userQuery: string, taskId: string): Promise<string> {
     if (this.memoryStream.length === 0) return "";
 
-    const summaryList = this.memoryStream.map((u, index) => {
+    // Filter by taskId first
+    const relevantMemories = this.memoryStream.filter(u => u.taskId === taskId);
+    if (relevantMemories.length === 0) return "";
+
+    const summaryList = relevantMemories.map((u, index) => {
         return `${index}. [${u.role.toUpperCase()}] (Turn ${u.turnId}) ${u.summary} (ID: ${u.id})`;
     }).join('\n');
 
@@ -155,13 +171,17 @@ ${summaryList}
             }
         }
     } catch (e) {
-        Logger.warn("Memory", "Failed to retrieve relevant context");
+        Logger.warn("Memory", "检索相关上下文失败");
     }
 
-    if (relevantIds.length === 0) return "";
+    if (relevantIds.length === 0) {
+        Logger.info("Memory", "未找到相关上下文，查询: " + userQuery);
+        return "";
+    }
 
     const contextParts = relevantIds.map(id => {
-        const unit = this.memoryStream.find(u => u.id === id);
+        // Use filtered list or full list? ID is unique so full list is fine, but for speed use filtered.
+        const unit = relevantMemories.find(u => u.id === id);
         if (!unit) return "";
         return `
 === Context Recall (Turn ${unit.turnId}) ===
@@ -173,7 +193,8 @@ ${unit.content}
 `;
     });
 
-    Logger.info("Memory", `Retrieved ${relevantIds.length} context units for query: "${userQuery}"`);
+    Logger.info("Memory", `检索到 ${relevantIds.length} 条相关上下文，查询: "${userQuery}"`);
+    Logger.info("Memory", `检索到的 ID: ${relevantIds.join(', ')}`);
     return contextParts.join('\n');
   }
 }
