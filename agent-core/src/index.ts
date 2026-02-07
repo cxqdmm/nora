@@ -15,9 +15,12 @@ const __dirname = path.dirname(__filename);
 
 // Server Configs
 const pythonServerPath = path.resolve(__dirname, "../../mcp-servers/python-sandbox/server.py");
+const isWin = process.platform === 'win32';
+const venvPythonWin = path.resolve(__dirname, "../../mcp-servers/python-sandbox/.venv/Scripts/python.exe");
+const venvPythonUnix = path.resolve(__dirname, "../../mcp-servers/python-sandbox/.venv/bin/python");
 const memoryServicePath = path.resolve(__dirname, "../../mcp-servers/memory-service/src/index.ts");
 const skillsServicePath = path.resolve(__dirname, "../../mcp-servers/skills-service/src/index.ts");
-const allowedDir = "/"; // Allow entire system access
+const allowedDir = path.resolve(__dirname, "../../");
 
 function parseArgs(): { provider: LLMProvider } {
   const args = process.argv.slice(2);
@@ -61,7 +64,19 @@ async function main() {
 
   try {
     // 3. Connect to Servers
-    await sandboxMcp.connect("python3", [pythonServerPath]);
+    let pythonCmd = "python3";
+    let pythonArgs: string[] = [pythonServerPath];
+    try {
+      const fs = await import('fs');
+      if (isWin && fs.existsSync(venvPythonWin)) {
+        pythonCmd = venvPythonWin;
+      } else if (!isWin && fs.existsSync(venvPythonUnix)) {
+        pythonCmd = venvPythonUnix;
+      } else if (isWin) {
+        pythonCmd = "python";
+      }
+    } catch {}
+    await sandboxMcp.connect(pythonCmd, pythonArgs);
     
     // Connect to FS Server
     await import('fs').then(fs => fs.promises.mkdir(allowedDir, { recursive: true }));
