@@ -71,12 +71,13 @@ export class Logger {
     if (!content) return;
     const roleColor = role === 'user' ? chalk.cyan : role === 'assistant' ? chalk.green : role === 'system' ? chalk.gray : chalk.magenta;
     console.log(`\n${roleColor(role.toUpperCase())}: ${content}\n`);
-    this.broadcast({ type: 'llm', role, message: content });
+    // Change type to 'llm-output' to match 'llm-input' style in UI
+    this.broadcast({ type: 'llm-output', role, message: content });
   }
 
-  static llmInput(messages: any[]) {
-    console.log(`${chalk.magenta.bold(`[LLM]`)} Input Messages: ${messages.length}`);
-    this.broadcast({ type: 'llm-input', messages });
+  static llmInput(messages: any[], purpose: string = "") {
+    console.log(`${chalk.magenta.bold(`[LLM]`)} Input Messages: ${messages.length} (${purpose})`);
+    this.broadcast({ type: 'llm-input', messages, purpose });
   }
 
   static code(code: string) {

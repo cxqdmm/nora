@@ -341,16 +341,16 @@
         }
         
         /* LLM Input Group */
-        .entry.llm-input .llm-input-summary {
+        .llm-input-summary {
             cursor: pointer;
             font-weight: bold;
             color: var(--accent-purple);
             user-select: none;
         }
-        .entry.llm-input .llm-input-summary:hover {
+        .llm-input-summary:hover {
             color: var(--text-primary);
         }
-        .entry.llm-input .badge-llm {
+        .badge-llm {
             background: rgba(198, 120, 221, 0.15);
             color: var(--accent-purple);
             padding: 2px 6px;
@@ -358,12 +358,12 @@
             font-size: 11px;
             margin-right: 8px;
         }
-        .entry.llm-input .llm-input-details {
+        .llm-input-details {
             margin-top: 10px;
             padding-left: 10px;
             border-left: 2px solid var(--border-color);
         }
-        .entry.llm-input .llm-input-details.collapsed {
+        .llm-input-details.collapsed {
             display: none;
         }
         .llm-message-item {
@@ -392,6 +392,7 @@
         .role-system { color: #abb2bf; border: 1px solid #5c6370; }
         .role-user { color: var(--accent-blue); border: 1px solid var(--accent-blue); }
         .role-assistant { color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .role-memory { color: var(--accent-purple); border: 1px solid var(--accent-purple); }
 
         /* Code Blocks */
         .entry.code-execution .content {
@@ -671,13 +672,44 @@
                 `;
                 break;
 
+            case 'llm-output':
+                // Collapsible container for LLM Output (similar to Input)
+                div.className = 'entry llm-output';
+                
+                const outSummary = document.createElement('div');
+                outSummary.className = 'llm-input-summary'; // Reuse style
+                outSummary.innerHTML = `<span class="toggle-icon">▶</span> <span class="badge-llm" style="color:var(--accent-green); background:rgba(152, 195, 121, 0.15);">LLM 输出</span> <span class="role-tag role-${log.role}">${log.role}</span>`;
+                
+                const outDetails = document.createElement('div');
+                outDetails.className = 'llm-input-details collapsed'; // Default collapsed
+                
+                const outContentDiv = document.createElement('div');
+                outContentDiv.className = 'message-content';
+                outContentDiv.innerHTML = escapeHtml(log.message);
+                
+                outDetails.appendChild(outContentDiv);
+
+                outSummary.onclick = () => {
+                    outDetails.classList.toggle('collapsed');
+                    const icon = outSummary.querySelector('.toggle-icon');
+                    icon.textContent = outDetails.classList.contains('collapsed') ? '▶' : '▼';
+                };
+
+                content.appendChild(outSummary);
+                content.appendChild(outDetails);
+                break;
+
             case 'llm-input':
                 // Collapsible container for multiple messages
                 div.className = 'entry llm-input';
                 
                 const summary = document.createElement('div');
                 summary.className = 'llm-input-summary';
-                summary.innerHTML = `<span class="toggle-icon">▶</span> <span class="badge-llm">LLM 输入</span> ${log.messages.length} 条消息`;
+                
+                // Add purpose badge if available
+                const purpose = log.purpose ? `<span class="badge-llm" style="background:rgba(97, 175, 239, 0.15); color:var(--accent-blue); margin-left:8px;">${escapeHtml(log.purpose)}</span>` : '';
+                
+                summary.innerHTML = `<span class="toggle-icon">▶</span> <span class="badge-llm">LLM 输入</span> ${log.messages.length} 条消息 ${purpose}`;
                 
                 const details = document.createElement('div');
                 details.className = 'llm-input-details collapsed';

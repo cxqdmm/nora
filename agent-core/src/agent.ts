@@ -263,7 +263,7 @@ ${scratchpadContent}
         const errorMsg = {
           role: "tool" as const,
           tool_call_id: toolCall.id,
-          content: "Error: Invalid JSON arguments provided."
+          content: "错误：提供的 JSON 参数无效。"
         };
         executionHistory.push(errorMsg);
         lastTurnMessages.push(errorMsg);
@@ -303,7 +303,7 @@ ${scratchpadContent}
            const errorMsg = {
               role: "tool" as const,
               tool_call_id: toolCall.id,
-              content: `Error updating scratchpad: ${e.message}`
+              content: `更新白板时出错: ${e.message}`
            };
            executionHistory.push(errorMsg);
            lastTurnMessages.push(errorMsg);
@@ -335,7 +335,7 @@ ${scratchpadContent}
            const errorMsg = {
               role: "tool" as const,
               tool_call_id: toolCall.id,
-              content: `Error updating running summary: ${e.message}`
+              content: `更新进度摘要时出错: ${e.message}`
            };
            executionHistory.push(errorMsg);
            lastTurnMessages.push(errorMsg);
@@ -351,7 +351,7 @@ ${scratchpadContent}
          const errorMsg = {
           role: "tool" as const,
           tool_call_id: toolCall.id,
-          content: `Error: Tool ${toolName} not found.`
+          content: `错误：未找到工具 ${toolName}。`
         };
         executionHistory.push(errorMsg);
         lastTurnMessages.push(errorMsg);
@@ -413,7 +413,7 @@ ${scratchpadContent}
         const toolMsg = {
           role: "tool" as const,
           tool_call_id: toolCall.id,
-          content: contentText || "(Tool executed successfully with no text output)"
+          content: contentText || "(工具执行成功，无文本输出)"
         };
         executionHistory.push(toolMsg);
         lastTurnMessages.push(toolMsg);
@@ -423,7 +423,7 @@ ${scratchpadContent}
         const errorMsg = {
           role: "tool" as const,
           tool_call_id: toolCall.id,
-          content: `Error executing tool: ${error.message}`
+          content: `执行工具出错: ${error.message}`
         };
         executionHistory.push(errorMsg);
         lastTurnMessages.push(errorMsg);
@@ -447,7 +447,7 @@ ${scratchpadContent}
     // Update Task Title if provided by Planner
     if (plan && plan.taskTitle) {
        this.taskManager.updateTaskTitle(currentTaskId, plan.taskTitle);
-       Logger.info("Task", `Updated task title to: "${plan.taskTitle}"`);
+       Logger.info("任务", `更新任务标题为: "${plan.taskTitle}"`);
     }
 
     // 2. Execution Phase
@@ -503,7 +503,7 @@ ${scratchpadContent}
       if (response.content) {
         Logger.llmResponse(response.role, response.content);
         // Fix: Use currentTurnId (global) instead of turnCount (local) for consistency
-        this.memoryManager.summarizeAssistantReply(response.content, currentTurnId, currentTaskId).catch(e => {});
+        await this.memoryManager.summarizeAssistantReply(response.content, currentTurnId, currentTaskId).catch(e => {});
       }
 
       // 记录到历史数组 (Ref Only)

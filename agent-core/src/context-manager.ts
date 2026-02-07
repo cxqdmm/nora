@@ -66,7 +66,7 @@ ${extraInfo ? `[Info: ${extraInfo}]\n` : ''}${content.substring(0, 500)}
 摘要：`;
 
       try {
-          const response = await this.llm.chat([{ role: 'user', content: prompt }], undefined, undefined, `Memory-Summarize-${role}`);
+          const response = await this.llm.chat([{ role: 'user', content: prompt }], undefined, undefined, `记忆摘要-${role}`);
           return response.content?.trim() || `${role} message`;
       } catch (e) {
           Logger.warn("Memory", `${role} 内容摘要生成失败`);
@@ -97,7 +97,7 @@ ${extraInfo ? `[Info: ${extraInfo}]\n` : ''}${content.substring(0, 500)}
 
   async summarizeToolOutput(toolName: string, args: any, output: string, turnId: number, taskId: string, relatedId?: string): Promise<MemoryUnit> {
       const summary = await this.generateSummary('tool', output, `Tool: ${toolName}, Args: ${JSON.stringify(args)}`);
-      Logger.info("Memory", `工具输出摘要 (轮次 ${turnId}, 工具: ${toolName}): "${summary}"`);
+      Logger.llmResponse('memory', `工具输出摘要 (轮次 ${turnId}, 工具: ${toolName}): "${summary}"`);
       const unit: MemoryUnit = {
           id: Math.random().toString(36).substring(2, 10),
           turnId,
@@ -116,7 +116,7 @@ ${extraInfo ? `[Info: ${extraInfo}]\n` : ''}${content.substring(0, 500)}
 
   async summarizeAssistantReply(content: string, turnId: number, taskId: string): Promise<MemoryUnit> {
       const summary = await this.generateSummary('assistant', content);
-      Logger.info("Memory", `助手回复摘要 (轮次 ${turnId}): "${summary}"`);
+      Logger.llmResponse('memory', `助手回复摘要 (轮次 ${turnId}): "${summary}"`);
       const unit: MemoryUnit = {
           id: Math.random().toString(36).substring(2, 10),
           turnId,
@@ -163,6 +163,8 @@ ${summaryList}
     try {
         const response = await this.llm.chat([{ role: 'user', content: prompt }], undefined, undefined, "Memory-Retrieve-ShortTerm");
         const raw = response.content || "{}";
+        Logger.llmResponse('memory', raw); // Log raw LLM output
+
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);

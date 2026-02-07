@@ -54,7 +54,7 @@ export class Memoryer {
     
     let targetIds: string[] = [];
     try {
-      const response = await this.llm.chat(messages, undefined, undefined, "Memory-Retrieve");
+      const response = await this.llm.chat(messages, undefined, undefined, "长期记忆检索");
       const content = response.content || "{}";
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/```([\s\S]*?)```/) || [null, content];
       const jsonStr = jsonMatch[1] || content;

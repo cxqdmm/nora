@@ -55,7 +55,7 @@ export class LLMService {
     source: string = 'Unknown'
   ) {
     // Log messages
-    Logger.llmInput(messages);
+    Logger.llmInput(messages, source);
     
     // Console log for debugging (truncated)
     messages.forEach((msg) => {
