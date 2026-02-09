@@ -31,7 +31,7 @@ export class ScratchpadManager {
       value,
       timestamp: Date.now()
     });
-    Logger.scratchpadUpdate(this.getFormattedContent(taskId));
+    Logger.scratchpadUpdate(this.getFormattedContent(taskId), taskId);
   }
 
   /**
@@ -40,7 +40,7 @@ export class ScratchpadManager {
   delete(taskId: string, key: string) {
     const taskStore = this.getTaskStore(taskId);
     taskStore.delete(key);
-    Logger.scratchpadUpdate(this.getFormattedContent(taskId));
+    Logger.scratchpadUpdate(this.getFormattedContent(taskId), taskId);
   }
 
   /**

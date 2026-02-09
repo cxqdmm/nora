@@ -9,10 +9,13 @@ export interface PlanStep {
   dependencies?: number[]; // IDs of steps that must be completed first
 }
 
+import { UserInputRecord } from './context-manager.js';
+
 export interface Plan {
   steps: PlanStep[];
   reasoning: string;
   taskTitle?: string; // Optional: Suggested title for the task
+  suggestedTaskId?: string; // Optional: If the current intent belongs to a previous task
 }
 
 const PLANNER_SYSTEM_PROMPT = `
@@ -31,6 +34,7 @@ const PLANNER_SYSTEM_PROMPT = `
 {
   "reasoning": "分析是否需要规划以及策略解释...",
   "taskTitle": "任务名称（可选，仅在任务开始或意图变更时生成，中文）",
+  "suggestedTaskId": "关联的任务ID（可选，仅当判定当前意图属于历史某个具体任务时）",
   "steps": [
     {
       "id": 1,
@@ -42,9 +46,9 @@ const PLANNER_SYSTEM_PROMPT = `
 \`\`\`
 
 **规则：**
-1. **任务命名**：
-   - 必须分析用户的意图，为当前交互生成一个简洁的**中文任务名称**（例如：“重构上下文管理”、“修复登录Bug”）。
-   - 将其放入 JSON 的 \`taskTitle\` 字段中。
+1. **任务关联与命名**：
+   - **历史追溯 (Context Check)**：请仔细查看提供的【用户输入历史】。如果当前用户的请求是对历史某个对话的**追问**、**修正**或**延续**（例如：“它是什么时候发生的？”、“那个报错怎么解？”、“用脚本再查一次”），请找到该历史输入对应的 \`TaskID\`，并将其填入 \`suggestedTaskId\` 字段。
+   - **新任务命名**：如果是全新的话题，请为当前交互生成一个简洁的**中文任务名称**（例如：“重构上下文管理”、“修复登录Bug”），填入 \`taskTitle\`。
 
 2. **先判断复杂度**：
    - 如果用户请求是**简单**的（例如：问候、单一问题、简单的直接命令、闲聊），不需要多步执行，请将 steps 设置为空数组 []，并在 reasoning 中说明“这是一个简单请求，直接回答即可”。
@@ -62,16 +66,21 @@ export class Planner {
     this.llm = llm;
   }
 
-  async createPlan(userGoal: string, history: ChatCompletionMessageParam[] = [], tools: ChatCompletionTool[] = []): Promise<Plan> {
+  async createPlan(userGoal: string, history: ChatCompletionMessageParam[] = [], tools: ChatCompletionTool[] = [], userInputHistory: UserInputRecord[] = []): Promise<Plan> {
     // Filter out system messages from history to avoid conflicting instructions
     const contextMessages = history.filter(msg => msg.role !== 'system');
+
+    // Format User Input History for Prompt
+    const historyText = userInputHistory.length > 0 
+        ? userInputHistory.map(h => `[Turn ${h.turnId}] (TaskID: ${h.taskId}): ${h.content}`).join('\n')
+        : "无历史记录";
 
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: PLANNER_SYSTEM_PROMPT },
       ...contextMessages,
       { 
         role: "user", 
-        content: `用户当前的输入是: "${userGoal}"\n\n请根据上述上下文和用户输入，判断这是否需要一个复杂的执行计划。如果需要，请制定详细的执行步骤；如果这是一个简单的交互（如问候、澄清、单一问题），请返回空步骤列表。` 
+        content: `【用户输入历史 (用于判断任务关联性)】\n${historyText}\n\n【当前用户输入】\n"${userGoal}"\n\n请根据上述上下文和用户输入，判断这是否需要一个复杂的执行计划。如果需要，请制定详细的执行步骤；如果这是一个简单的交互（如问候、澄清、单一问题），请返回空步骤列表。同时，请分析当前意图是否属于历史任务。` 
       }
     ];
 

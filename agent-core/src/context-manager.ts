@@ -14,12 +14,34 @@ export interface MemoryUnit {
   taskId: string; // Add taskId
 }
 
+export interface UserInputRecord {
+  turnId: number;
+  content: string;
+  taskId: string;
+  timestamp: number;
+}
+
 export class MemoryManager {
   private memoryStream: MemoryUnit[] = [];
   private llm: LLMService;
   
   constructor(llm: LLMService) {
     this.llm = llm;
+  }
+
+  /**
+   * Get chronological list of user inputs for context analysis
+   */
+  getUserInputHistory(limit: number = 20): UserInputRecord[] {
+    return this.memoryStream
+      .filter(u => u.role === 'user')
+      .slice(-limit)
+      .map(u => ({
+        turnId: u.turnId,
+        content: u.content,
+        taskId: u.taskId,
+        timestamp: u.timestamp
+      }));
   }
 
   addMemory(unit: MemoryUnit) {
@@ -133,12 +155,26 @@ ${extraInfo ? `[Info: ${extraInfo}]\n` : ''}${content.substring(0, 500)}
   async retrieveContext(userQuery: string, taskId: string): Promise<string> {
     if (this.memoryStream.length === 0) return "";
 
-    // Filter by taskId first
-    const relevantMemories = this.memoryStream.filter(u => u.taskId === taskId);
+    // 1. 获取当前任务的上下文
+    const taskMemories = this.memoryStream.filter(u => u.taskId === taskId);
+    
+    // 2. 获取最近的全局上下文 (Cross-task context)
+    // 即使 taskId 变了，我们也需要最近的 N 条对话来理解代词（如"它"、"上一个"）
+    // 取最近 10 条记录作为全局上下文窗口
+    const recentGlobalMemories = this.memoryStream.slice(-10);
+
+    // 合并并去重
+    const memoryMap = new Map<string, MemoryUnit>();
+    [...taskMemories, ...recentGlobalMemories].forEach(m => memoryMap.set(m.id, m));
+    
+    // 转换为数组并按时间排序
+    const relevantMemories = Array.from(memoryMap.values()).sort((a, b) => a.timestamp - b.timestamp);
+
     if (relevantMemories.length === 0) return "";
 
     const summaryList = relevantMemories.map((u, index) => {
-        return `${index}. [${u.role.toUpperCase()}] (Turn ${u.turnId}) ${u.summary} (ID: ${u.id})`;
+        const taskTag = u.taskId !== taskId ? `[History]` : `[Current]`;
+        return `ID: ${u.id}：${taskTag} [${u.role.toUpperCase()}] (Turn ${u.turnId}) ${u.summary}`;
     }).join('\n');
 
     const prompt = `
@@ -149,9 +185,11 @@ ${extraInfo ? `[Info: ${extraInfo}]\n` : ''}${content.substring(0, 500)}
 ${summaryList}
 
 判断标准：
-1. 如果摘要提到“代码”、“文件内容”、“错误日志”，且与问题相关，必须选中。
-2. 只选最有用的 1-3 条。不要选无关的闲聊。
-3. 如果没有相关的，返回空列表。
+1. 优先关注 [Current] 任务中的信息。
+2. 如果 [History] (上一任务) 中包含用户指代的对象（如"那个代码"、"上一个错误"），必须选中。
+3. 如果摘要提到“代码”、“文件内容”、“错误日志”，且与问题相关，必须选中。
+4. 只选最有用的 1-3 条。不要选无关的闲聊。
+5. 如果没有相关的，返回空列表。
 
 输出格式 (JSON):
 {
@@ -182,7 +220,7 @@ ${summaryList}
     }
 
     const contextParts = relevantIds.map(id => {
-        // Use filtered list or full list? ID is unique so full list is fine, but for speed use filtered.
+        // Find in our merged map/list
         const unit = relevantMemories.find(u => u.id === id);
         if (!unit) return "";
         return `

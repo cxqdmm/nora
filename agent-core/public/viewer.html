@@ -563,14 +563,17 @@
     <div id="context-panel">
         <div class="context-tabs">
             <div class="tab-item active" data-target="tab-scratchpad">白板</div>
-            <div class="tab-item" data-target="tab-summary">摘要</div>
+            <div class="tab-item" data-target="tab-summary">进度</div>
             <div class="tab-item" data-target="tab-memory">记忆</div>
         </div>
 
         <div class="context-pages">
             <!-- Page 1: Scratchpad -->
             <div id="tab-scratchpad" class="tab-page active">
-                <div class="page-header" style="color: var(--accent-yellow);">全局任务白板 (SCRATCHPAD)</div>
+                <div class="page-header" style="color: var(--accent-yellow);">
+                    全局任务白板 (SCRATCHPAD)
+                    <span id="scratchpad-task-id" style="float: right; font-size: 0.8em; opacity: 0.7; font-weight: normal;"></span>
+                </div>
                 <div id="scratchpad-content" class="page-content code-block" style="color: var(--accent-yellow);">
                     <div class="context-empty">空</div>
                 </div>
@@ -578,7 +581,10 @@
 
             <!-- Page 2: Summary -->
             <div id="tab-summary" class="tab-page">
-                <div class="page-header" style="color: var(--accent-cyan);">任务进度摘要 (SUMMARY)</div>
+                <div class="page-header" style="color: var(--accent-cyan);">
+                    任务进度 (TODO LIST)
+                    <span id="summary-task-id" style="float: right; font-size: 0.8em; opacity: 0.7; font-weight: normal;"></span>
+                </div>
                 <div id="running-summary-content" class="page-content code-block" style="color: var(--accent-cyan);">
                     <div class="context-empty">空</div>
                 </div>
@@ -991,11 +997,25 @@
 
                 if (data.type === 'scratchpad-update') {
                     scratchpadEl.textContent = data.content || '(空)';
+                    if (data.taskId) {
+                        const idEl = document.getElementById('scratchpad-task-id');
+                        if (idEl) {
+                            idEl.textContent = `ID: ${data.taskId.substring(0, 8)}...`;
+                            idEl.title = data.taskId;
+                        }
+                    }
                     return;
                 }
 
                 if (data.type === 'running-summary-update') {
                     runningSummaryEl.textContent = data.content || '(空)';
+                    if (data.taskId) {
+                        const idEl = document.getElementById('summary-task-id');
+                        if (idEl) {
+                            idEl.textContent = `ID: ${data.taskId.substring(0, 8)}...`;
+                            idEl.title = data.taskId;
+                        }
+                    }
                     return;
                 }
 

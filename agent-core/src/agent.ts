@@ -7,37 +7,38 @@ import { Memoryer } from './memoryer.js';
 import { MemoryManager } from './context-manager.js';
 import { ScratchpadManager } from './scratchpad.js';
 import { TaskManager } from './task-manager.js';
-import { RunningSummaryManager } from './running-summary.js';
+import { TodoManager } from './todo-manager.js';
 
 const SYSTEM_PROMPT = `
 你是一个拥有多种工具的高级 AI Agent。
 
-**能力：**
-1. 你可以编写并执行 Python 代码（通过 \`execute_code\`）进行计算和数据处理。
-2. 你可以通过提供的工具执行文件系统操作（读取/写入/列出）。
-3. 你拥有**长期记忆**系统。你可以使用 \`search_memories\`、\`read_memory\` 和 \`store_memory\` 来搜索、读取和存储记忆。
+**核心能力与工具体系：**
+
+1. **工作记忆管理 (CRITICAL)**:
+   - **Scratchpad (白板)**: 你拥有一个名为 \`manage_scratchpad\` 的工具。这是你的**短期工作记忆**。
+     - **用途**: 必须将所有**关键信息**（如搜索到的 ID、文件路径、中间计算结果、用户偏好）写入白板。
+     - **原则**: 不要依赖隐式的对话历史，**显式地记录**关键数据，以便后续步骤准确调用。
+   - **Todo List (任务进度)**: 你拥有一个名为 \`update_todo\` 的工具。
+     - **用途**: 这是一个自动从计划生成的待办事项列表。
+     - **原则**: 每当你开始、完成或失败一个步骤时，**必须**调用此工具更新对应步骤的状态。这是你跟踪任务进度的唯一事实来源。
+
+2. **长期记忆系统**:
+   - 你可以使用 \`search_memories\`、\`read_memory\` 和 \`store_memory\`。
    - 当用户询问模糊的、过去的或你需要回忆的信息时，**必须**优先使用 \`search_memories\`。
+   - **写入策略**: 长期记忆（\`store_memory\`）只在用户**明确要求**时（如“请记住...”）才使用，否则不要主动写入。
 
-**关键规则：**
-1. **Python 执行**：必须始终使用 \`print(...)\` 输出最终结果。
-2. **文件系统**：使用绝对路径或相对于允许根目录的路径。
-3. **通用**：解释工具输出并提供清晰的最终答案。
+3. **代码与文件操作**:
+   - **Python**: 通过 \`execute_code\` 进行计算。必须使用 \`print(...)\` 输出结果。
+   - **文件系统**: 支持读写操作。始终使用绝对路径。
 
-**记忆整合策略（重要）：**
-长期记忆（\`store_memory\`）只在用户**明确要求**时才使用。
-- 如果用户明确说“请记住/保存/写入长期记忆/存档这段结论”，你才调用 \`store_memory\`。
-- 否则不要主动将信息写入长期记忆。
-- 用户询问过去信息时，仍可使用 \`search_memories\` / \`read_memory\` 检索与读取。
+**交互与执行原则：**
+1. **以计划为纲**: 严格遵循 Planner 生成的计划步骤。
+2. **显式状态同步**: 在执行复杂任务时，你**必须**通过工具保持白板和Todo List的实时更新。
+3. **解释输出**: 解释工具的输出结果，并提供清晰的最终答案。
 
-**交互风格：**
-- 以规划器（Planner）的计划为指导。
-- 顺序执行工具。
-- 如果工具失败，分析错误并重试或调整计划。
-
-**任务结束协议（TASK_DONE）：**
+**任务结束协议 (TASK_DONE)：**
 当你认为任务已经彻底完成，并且给出的回答是最终结论时，请在回复内容的末尾加上 \`[TASK_DONE]\` 标记。
-- 即使你同时调用了工具（如 \`update_running_summary\` 或 \`store_memory\`），只要检测到此标记，系统会在执行完工具后**立即结束**对话，而不会进入下一轮思考。
-- 请利用此机制来避免在仅做“收尾记录”时产生不必要的额外对话轮次。
+- **并行收尾**: 如果在最后一步需要更新状态（如标记最后一个步骤为 completed），请务必在**同一轮**中并行调用工具并输出最终文本 + \`[TASK_DONE]\`。
 `;
 
 export class Agent {
@@ -48,7 +49,7 @@ export class Agent {
   private memoryManager: MemoryManager;
   private scratchpadManager: ScratchpadManager;
   private taskManager: TaskManager;
-  private runningSummaryManager: RunningSummaryManager;
+  private todoManager: TodoManager;
   private systemMessage: ChatCompletionMessageParam;
   private tools: ChatCompletionTool[] = [];
   private toolMap: Map<string, MCPManager> = new Map();
@@ -62,7 +63,7 @@ export class Agent {
     this.memoryManager = new MemoryManager(llm);
     this.scratchpadManager = new ScratchpadManager();
     this.taskManager = new TaskManager();
-    this.runningSummaryManager = new RunningSummaryManager();
+    this.todoManager = new TodoManager();
 
     this.systemMessage = {
       role: "system",
@@ -73,13 +74,10 @@ export class Agent {
   async initialize() {
     this.tools = [];
     this.toolMap.clear();
-    // this.scratchpadManager.clear(); // Removed: State persists across sessions if managed externally, or resets per task
-    // We don't want to clear global state here as it might be a resumed session in future.
-    // For now, in-memory is volatile so it clears on restart anyway.
-
+    
     // 0. Add Built-in Tools
     this.tools.push(this.scratchpadManager.getToolDefinition());
-    this.tools.push(this.runningSummaryManager.getToolDefinition());
+    this.tools.push(this.todoManager.getToolDefinition());
     
     // 1. Add MCP Tools
     for (const mcp of this.mcps) {
@@ -157,11 +155,18 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
         planningHistory.push({ role: "assistant", content: `【短期记忆召回】\n${dynamicContextForPlan}` });
       }
       
-      plan = await this.planner.createPlan(userInput, planningHistory, this.tools);
+      plan = await this.planner.createPlan(
+        userInput, 
+        planningHistory, 
+        this.tools, 
+        this.memoryManager.getUserInputHistory() // Pass history
+      );
       
       if (plan.steps && plan.steps.length > 0) {
         Logger.plan(plan.reasoning);
         plan.steps.forEach(step => Logger.step(step.id, step.description));
+        // Initialize Todo List
+        this.todoManager.initialize(currentTaskId, plan.steps);
       } else {
         Logger.plan(`无需复杂计划: ${plan.reasoning}`);
       }
@@ -189,8 +194,8 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
     if (plan && plan.steps && plan.steps.length > 0) {
       // 获取最新的 Scratchpad 内容
       const scratchpadContent = this.scratchpadManager.getFormattedContent(currentTaskId);
-      // 获取最新的 Running Summary
-      const runningSummaryContent = this.runningSummaryManager.getFormattedContent(currentTaskId);
+      // 获取最新的 Todo List
+      const todoListContent = this.todoManager.getFormattedContent(currentTaskId);
       
       messagesForTurn.push({
           role: "system",
@@ -200,21 +205,20 @@ ${skillsList.map((s: any) => `  <skill>\n    <name>${s.name}</name>\n    <descri
 当前计划:
 ${JSON.stringify(plan.steps, null, 2)}
 
-${runningSummaryContent}
+${todoListContent}
 
 ${scratchpadContent}
 
 指令：
 1. 请根据下方提供的【记忆回溯资料】、【全局任务白板】和【任务进度摘要】，严格核对上述计划的完成情况。
 2. 明确你当前正处于哪一步骤，不要重复执行已完成的步骤。
-3. **合并执行（效率关键）**：
-   - 如果当前步骤产生了关键结论，且该结论就是用户的最终答案，请务必在**同一轮**响应中完成所有操作：
-     a) 调用 'manage_scratchpad' 或 'update_running_summary' 进行状态归档（这是后台动作）。
-     b) 直接在文本回复中输出最终答案，并附加 [TASK_DONE] 标记。
-   - **严禁**为了等待工具执行结果（如 "Running Summary updated"）而多浪费一轮对话。请默认工具执行会成功。`
+3. **状态管理协议 (MANDATORY)**：
+   - **Scratchpad (白板)**: 当本步骤产生了**跨步骤需要引用**的关键数据（如：搜索到的ID、新生成的文件路径、重要的中间变量）时，**必须**调用 'manage_scratchpad' 记录。不要让这些信息淹没在历史对话中。
+   - **Todo List (任务进度)**: 当你开始或完成一个**Plan Step (计划步骤)** 时，**必须**调用 'update_todo' 更新进度。
+   - **并行收尾**: 如果在任务结束时（输出 [TASK_DONE]）恰好满足上述记录条件，请务必在**同一轮**中并行调用工具，不要分步。`
       });
       
-      Logger.info("Context", `注入全局上下文: 计划, 白板 (${scratchpadContent.length} 字符), 进度摘要 (${runningSummaryContent.length} 字符)`);
+      Logger.info("Context", `注入全局上下文: 计划, 白板 (${scratchpadContent.length} 字符), 进度 (${todoListContent.length} 字符)`);
     }
 
     // 2. 动态上下文检索 (修复 #1: 使用 focusQuery 而非静态 userInput)
@@ -319,10 +323,10 @@ ${scratchpadContent}
         }
       }
 
-      // 2. Update Running Summary
-      if (toolName === 'update_running_summary') {
+      // 2. Update Todo List
+      if (toolName === 'update_todo') {
         try {
-          const output = this.runningSummaryManager.handleToolCall(currentTaskId, args);
+          const output = this.todoManager.handleToolCall(currentTaskId, args);
           Logger.toolOutput(output);
           
           const toolMsg = {
@@ -453,16 +457,40 @@ ${scratchpadContent}
     const plan = await this.runPlanningPhase(userInput, currentTaskId);
 
     // Update Task Title if provided by Planner
-    if (plan && plan.taskTitle) {
-       this.taskManager.updateTaskTitle(currentTaskId, plan.taskTitle);
-       Logger.info("任务", `更新任务标题为: "${plan.taskTitle}"`);
+    if (plan) {
+        // Priority 1: Suggested Task ID (Switch Context)
+        if (plan.suggestedTaskId && plan.suggestedTaskId !== currentTaskId) {
+             const switched = this.taskManager.switchTask(plan.suggestedTaskId);
+             if (switched) {
+                 Logger.info("Task", `上下文切换: 恢复到历史任务 ${plan.suggestedTaskId}`);
+             } else {
+                 Logger.warn("Task", `试图切换到不存在的任务 ID: ${plan.suggestedTaskId}`);
+             }
+        }
+        // Priority 2: New Task Title (Create Context)
+        else if (plan.taskTitle) {
+             const currentTask = this.taskManager.getCurrentTask();
+             // Only create new task if title is different and current task is not default/empty
+             if (currentTask && currentTask.title !== "Default Task" && currentTask.title !== plan.taskTitle) {
+                 Logger.info("Task", `检测到新任务意图: "${plan.taskTitle}"`);
+                 const newTask = this.taskManager.createTask(plan.taskTitle);
+                 Logger.info("Task", `已创建新任务: ${newTask.id}`);
+             } else {
+                 this.taskManager.updateTaskTitle(currentTaskId, plan.taskTitle);
+                 Logger.info("任务", `更新任务标题为: "${plan.taskTitle}"`);
+             }
+        }
     }
+
+    // Refresh task ID after potential switch
+    const activeTaskId = this.taskManager.getCurrentTaskId();
+    const activeTask = this.taskManager.getCurrentTask();
 
     // 2. Execution Phase
     Logger.phase("执行阶段");
 
     try {
-      await this.memoryManager.summarizeUserMessage(userInput, currentTurnId, currentTaskId);
+      await this.memoryManager.summarizeUserMessage(userInput, currentTurnId, activeTaskId);
     } catch (e) {
       Logger.warn("Agent", "用户输入短期记忆摘要失败。");
     }
@@ -495,8 +523,8 @@ ${scratchpadContent}
       // --- 构建本轮 LLM 上下文 ---
       const messagesForTurn = await this.buildContextForTurn(
         userInput, 
-        currentTaskId, 
-        currentTask, 
+        activeTaskId, 
+        activeTask, 
         plan, 
         focusQuery, 
         lastTurnMessages
@@ -511,7 +539,7 @@ ${scratchpadContent}
       if (response.content) {
         Logger.llmResponse(response.role, response.content, "Agent");
         // Fix: Use currentTurnId (global) instead of turnCount (local) for consistency
-        await this.memoryManager.summarizeAssistantReply(response.content, currentTurnId, currentTaskId).catch(e => {});
+        await this.memoryManager.summarizeAssistantReply(response.content, currentTurnId, activeTaskId).catch(e => {});
       }
 
       // Log tool calls prediction
@@ -537,7 +565,7 @@ ${scratchpadContent}
       if (response.tool_calls && response.tool_calls.length > 0) {
         const toolSummaries = await this.executeTools(
             response.tool_calls,
-            currentTaskId,
+            activeTaskId,
             userInput,
             turnCount,
             currentTurnId, // Pass global turn ID
