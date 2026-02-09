@@ -207,8 +207,11 @@ ${scratchpadContent}
 指令：
 1. 请根据下方提供的【记忆回溯资料】、【全局任务白板】和【任务进度摘要】，严格核对上述计划的完成情况。
 2. 明确你当前正处于哪一步骤，不要重复执行已完成的步骤。
-3. 如果本步骤产生了跨步骤需要的关键信息（如ID、路径、结果），请务必调用 'manage_scratchpad' 记录到白板中。
-4. 每当完成一个重要步骤，请务必调用 'update_running_summary' 更新进度摘要。`
+3. **合并执行（效率关键）**：
+   - 如果当前步骤产生了关键结论，且该结论就是用户的最终答案，请务必在**同一轮**响应中完成所有操作：
+     a) 调用 'manage_scratchpad' 或 'update_running_summary' 进行状态归档（这是后台动作）。
+     b) 直接在文本回复中输出最终答案，并附加 [TASK_DONE] 标记。
+   - **严禁**为了等待工具执行结果（如 "Running Summary updated"）而多浪费一轮对话。请默认工具执行会成功。`
       });
       
       Logger.info("Context", `注入全局上下文: 计划, 白板 (${scratchpadContent.length} 字符), 进度摘要 (${runningSummaryContent.length} 字符)`);
@@ -509,6 +512,12 @@ ${scratchpadContent}
         Logger.llmResponse(response.role, response.content, "Agent");
         // Fix: Use currentTurnId (global) instead of turnCount (local) for consistency
         await this.memoryManager.summarizeAssistantReply(response.content, currentTurnId, currentTaskId).catch(e => {});
+      }
+
+      // Log tool calls prediction
+      if (response.tool_calls && response.tool_calls.length > 0) {
+        const toolNames = response.tool_calls.map(tc => (tc as any).function.name).join(', ');
+        Logger.info("Agent", `模型决定调用工具: ${toolNames}`);
       }
 
       // Check for [TASK_DONE] signal
