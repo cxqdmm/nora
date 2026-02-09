@@ -33,6 +33,11 @@ const SYSTEM_PROMPT = `
 - 以规划器（Planner）的计划为指导。
 - 顺序执行工具。
 - 如果工具失败，分析错误并重试或调整计划。
+
+**任务结束协议（TASK_DONE）：**
+当你认为任务已经彻底完成，并且给出的回答是最终结论时，请在回复内容的末尾加上 \`[TASK_DONE]\` 标记。
+- 即使你同时调用了工具（如 \`update_running_summary\` 或 \`store_memory\`），只要检测到此标记，系统会在执行完工具后**立即结束**对话，而不会进入下一轮思考。
+- 请利用此机制来避免在仅做“收尾记录”时产生不必要的额外对话轮次。
 `;
 
 export class Agent {
@@ -294,7 +299,7 @@ ${scratchpadContent}
           lastTurnMessages.push(toolMsg);
           
           // Summarize to memory
-          this.memoryManager.summarizeToolOutput(toolName, args, output, currentTurnId, currentTaskId, toolCall.id)
+          await this.memoryManager.summarizeToolOutput(toolName, args, output, currentTurnId, currentTaskId, toolCall.id)
               .catch(e => Logger.warn("Memory", `工具输出摘要失败: ${e}`));
           
           toolSummaries.push(`Tool ${toolName} output: ${output}`);
@@ -326,7 +331,7 @@ ${scratchpadContent}
           lastTurnMessages.push(toolMsg);
 
           // Summarize to memory
-          this.memoryManager.summarizeToolOutput(toolName, args, output, currentTurnId, currentTaskId, toolCall.id)
+          await this.memoryManager.summarizeToolOutput(toolName, args, output, currentTurnId, currentTaskId, toolCall.id)
               .catch(e => Logger.warn("Memory", `工具输出摘要失败: ${e}`));
           
           toolSummaries.push(`Tool ${toolName} output: ${output}`);
@@ -501,9 +506,17 @@ ${scratchpadContent}
 
       // Log the immediate response from Assistant
       if (response.content) {
-        Logger.llmResponse(response.role, response.content);
+        Logger.llmResponse(response.role, response.content, "Agent");
         // Fix: Use currentTurnId (global) instead of turnCount (local) for consistency
         await this.memoryManager.summarizeAssistantReply(response.content, currentTurnId, currentTaskId).catch(e => {});
+      }
+
+      // Check for [TASK_DONE] signal
+      let isTaskDoneSignal = false;
+      if (response.content && response.content.includes('[TASK_DONE]')) {
+          isTaskDoneSignal = true;
+          // Clean up the tag from the content for final answer
+          response.content = response.content.replace('[TASK_DONE]', '').trim();
       }
 
       // 记录到历史数组 (Ref Only)
@@ -522,6 +535,13 @@ ${scratchpadContent}
             executionHistory,
             lastTurnMessages
         );
+
+        // 如果检测到结束信号，直接结束，不再进入下一轮
+        if (isTaskDoneSignal) {
+            Logger.info("Agent", "检测到 [TASK_DONE] 信号，任务提前结束。");
+            finalAnswer = response.content || "";
+            break;
+        }
 
         // 修复 #1: 更新 focusQuery
         if (toolSummaries.length > 0) {

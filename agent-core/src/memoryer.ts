@@ -50,12 +50,13 @@ export class Memoryer {
       }
     ];
 
-    Logger.info("Memoryer", "Analyzing summaries to select relevant memories...");
+    Logger.info("Memoryer", "正在分析摘要以筛选相关记忆...");
     
     let targetIds: string[] = [];
     try {
-      const response = await this.llm.chat(messages, undefined, undefined, "长期记忆检索");
+      const response = await this.llm.chat(messages, undefined, undefined, "记忆检索-长期");
       const content = response.content || "{}";
+      Logger.llmResponse('memory', content, '记忆检索-长期');
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || content.match(/```([\s\S]*?)```/) || [null, content];
       const jsonStr = jsonMatch[1] || content;
       
@@ -64,22 +65,22 @@ export class Memoryer {
         targetIds = parsed.ids;
       }
     } catch (e) {
-      Logger.error("Memoryer", `Failed to parse selection: ${e}`);
+      Logger.error("Memoryer", `筛选记忆失败: ${e}`);
       return "记忆分析失败，无法提取详细内容。";
     }
 
     if (targetIds.length === 0) {
-      Logger.info("Memoryer", "No relevant memories selected by LLM.");
+      Logger.info("Memoryer", "LLM 未选中任何相关记忆。");
       return "根据摘要判断，没有找到与查询足够相关的详细记忆。";
     }
 
-    Logger.info("Memoryer", `Selected IDs: ${targetIds.join(", ")}`);
+    Logger.info("Memoryer", `选中 ID: ${targetIds.join(", ")}`);
 
     // 2. Fetch full content for selected IDs
     const contents: string[] = [];
     for (const id of targetIds) {
       try {
-        Logger.info("Memoryer", `Reading memory: ${id}`);
+        Logger.info("Memoryer", `正在读取记忆: ${id}`);
         
         // Check if it's a short-term memory (based on summary metadata if available, or just try)
         // We look up the summary object to check 'source'
@@ -90,7 +91,7 @@ export class Memoryer {
            if (content) {
              contents.push(`--- Short-Term Memory ID: ${id} ---\n${content}\n--- End of Memory ---`);
            } else {
-             Logger.warn("Memoryer", `Short-term memory ${id} found in summary but content read failed.`);
+             Logger.warn("Memoryer", `摘要中存在短期记忆 ${id} 但读取内容失败。`);
            }
         } else {
             // Default to Long-Term Memory (MCP)
@@ -102,7 +103,7 @@ export class Memoryer {
              contents.push(`--- Memory ID: ${id} ---\n${text}\n--- End of Memory ---`);
         }
       } catch (e: any) {
-        Logger.error("Memoryer", `Failed to read memory ${id}: ${e.message}`);
+        Logger.error("Memoryer", `读取记忆 ${id} 失败: ${e.message}`);
       }
     }
 

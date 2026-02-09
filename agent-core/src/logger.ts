@@ -67,12 +67,12 @@ export class Logger {
     // this.broadcast({ type: 'llm', role, message: content }); // Deprecated in favor of llmInput
   }
 
-  static llmResponse(role: string, content: string) {
+  static llmResponse(role: string, content: string, source: string = "Unknown") {
     if (!content) return;
     const roleColor = role === 'user' ? chalk.cyan : role === 'assistant' ? chalk.green : role === 'system' ? chalk.gray : chalk.magenta;
-    console.log(`\n${roleColor(role.toUpperCase())}: ${content}\n`);
+    console.log(`\n${roleColor(role.toUpperCase())} [${source}]: ${content}\n`);
     // Change type to 'llm-output' to match 'llm-input' style in UI
-    this.broadcast({ type: 'llm-output', role, message: content });
+    this.broadcast({ type: 'llm-output', role, message: content, source });
   }
 
   static llmInput(messages: any[], purpose: string = "") {

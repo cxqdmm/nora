@@ -212,13 +212,30 @@
         .entry {
             display: flex;
             gap: 15px;
-            padding: 4px 0;
+            padding: 4px 10px; /* Added padding for better readability */
             border-left: 2px solid transparent;
             margin-bottom: 2px;
+            border-radius: 0 4px 4px 0; /* Rounded corners on right */
+        }
+
+        /* Source-specific Styling */
+        .entry.source-agent {
+            border-left: 3px solid var(--accent-blue);
+            background: linear-gradient(90deg, rgba(97, 175, 239, 0.05) 0%, transparent 100%);
+        }
+        
+        .entry.source-memory {
+            border-left: 3px solid var(--accent-purple);
+            background: linear-gradient(90deg, rgba(198, 120, 221, 0.05) 0%, transparent 100%);
+            opacity: 0.9; /* Slightly dim background tasks */
+        }
+
+        .entry.source-tool {
+            border-left: 3px solid var(--accent-yellow);
         }
 
         .entry:hover {
-            background: rgba(255, 255, 255, 0.02);
+            background: rgba(255, 255, 255, 0.05); /* Brighter hover */
         }
 
         .ts {
@@ -228,6 +245,7 @@
             font-size: 11px;
             text-align: right;
             user-select: none;
+            opacity: 0.5; /* Make timestamp less intrusive */
         }
 
         .content {
@@ -346,6 +364,8 @@
             font-weight: bold;
             color: var(--accent-purple);
             user-select: none;
+            display: flex;
+            align-items: center;
         }
         .llm-input-summary:hover {
             color: var(--text-primary);
@@ -598,6 +618,23 @@
         const div = document.createElement('div');
         div.className = `entry ${log.type}`;
 
+        // Determine Source Class based on 'source' or 'purpose' fields
+        let sourceClass = '';
+        const source = log.source || log.purpose || '';
+        if (source) {
+            const lowerSource = source.toLowerCase();
+            if (lowerSource.startsWith('memory') || lowerSource.startsWith('记忆')) {
+                sourceClass = 'source-memory';
+            } else if (lowerSource === 'agent') {
+                sourceClass = 'source-agent';
+            } else if (lowerSource.includes('tool') || lowerSource.includes('工具')) {
+                sourceClass = 'source-tool';
+            }
+        }
+        if (sourceClass) {
+            div.classList.add(sourceClass);
+        }
+
         // Timestamp
         const ts = document.createElement('div');
         ts.className = 'ts';
@@ -676,9 +713,18 @@
                 // Collapsible container for LLM Output (similar to Input)
                 div.className = 'entry llm-output';
                 
+                // Icon logic
+                let outIcon = '🤖';
+                const sourceLower = log.source ? log.source.toLowerCase() : '';
+                if (sourceLower.startsWith('memory') || sourceLower.startsWith('记忆')) outIcon = '🧠';
+
                 const outSummary = document.createElement('div');
                 outSummary.className = 'llm-input-summary'; // Reuse style
-                outSummary.innerHTML = `<span class="toggle-icon">▶</span> <span class="badge-llm" style="color:var(--accent-green); background:rgba(152, 195, 121, 0.15);">LLM 输出</span> <span class="role-tag role-${log.role}">${log.role}</span>`;
+                
+                // Add source badge for output too
+                const sourceBadge = log.source ? `<span class="badge-llm" style="background:rgba(97, 175, 239, 0.15); color:var(--accent-blue); margin-left:8px;">${escapeHtml(log.source)}</span>` : '';
+
+                outSummary.innerHTML = `<span class="toggle-icon" style="margin-right:5px;">▶</span> <span style="margin-right:5px;">${outIcon}</span> <span class="badge-llm" style="color:var(--accent-green); background:rgba(152, 195, 121, 0.15);">LLM 输出</span> <span class="role-tag role-${log.role}">${log.role}</span> ${sourceBadge}`;
                 
                 const outDetails = document.createElement('div');
                 outDetails.className = 'llm-input-details collapsed'; // Default collapsed
@@ -709,7 +755,12 @@
                 // Add purpose badge if available
                 const purpose = log.purpose ? `<span class="badge-llm" style="background:rgba(97, 175, 239, 0.15); color:var(--accent-blue); margin-left:8px;">${escapeHtml(log.purpose)}</span>` : '';
                 
-                summary.innerHTML = `<span class="toggle-icon">▶</span> <span class="badge-llm">LLM 输入</span> ${log.messages.length} 条消息 ${purpose}`;
+                // Add Icon based on purpose
+                let icon = '🤖'; // Default Robot
+                const purposeLower = log.purpose ? log.purpose.toLowerCase() : '';
+                if (purposeLower.startsWith('memory') || purposeLower.startsWith('记忆')) icon = '🧠';
+                
+                summary.innerHTML = `<span class="toggle-icon" style="margin-right:5px;">▶</span> <span style="margin-right:5px;">${icon}</span> <span class="badge-llm">LLM 输入</span> ${log.messages.length} 条消息 ${purpose}`;
                 
                 const details = document.createElement('div');
                 details.className = 'llm-input-details collapsed';
