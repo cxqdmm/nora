@@ -1,7 +1,7 @@
 // ============================================================
 //  ItemModule.js — 道具管理，背包无限容量
 // ============================================================
-import { CONFIG } from './config.js';
+import { CONFIG } from '../config.js';
 
 export class ItemModule {
   constructor() {
