@@ -70,6 +70,7 @@ export const LEVEL1 = {
       type: 'frog',
       edgeA: 3,  // 节点 3
       edgeB: 5,  // 节点 5
+      sneakEnergyCost: 20,
     },
   ],
 };
