@@ -1,40 +1,45 @@
 // ============================================================
 //  NPCModule.js — NPC 抽象基类
 // ============================================================
-import { CONFIG } from '../config.js';
+import { CONFIG }      from '../config.js';
+import { EffectModule } from '../modules/EffectModule.js';
 
 export class NPCModule {
   /**
    * @param {object} opts
-   * @param {string} opts.id  唯一标识
-   * @param {number} opts.edgeA  所在边端点节点 id
-   * @param {number} opts.edgeB  所在边另一端点节点 id
+   * @param {string} opts.id   唯一标识
+   * @param {number} opts.edgeA 所在边端点节点 id
+   * @param {number} opts.edgeB 所在边另一端点节点 id
    */
   constructor(opts) {
     this.id     = opts.id;
     this.edgeA  = opts.edgeA;
     this.edgeB  = opts.edgeB;
-    this._state = 'idle';  // 'idle' | 'active' | 'sleeping' | 'dead'
+    this._state = 'idle';   // 'idle' | 'active' | 'sleeping' | 'dead'
     this._sleepDuration = CONFIG.NPC?.FROG?.SLEEP_DURATION_MS ?? 5000;
-    this._sleepTimer    = null;
-    this._sleepEndTime  = 0;
-    /** 玩家通过时的回调 (npc) */
+    this._sleepTimer   = null;
+    this._sleepEndTime = 0;
+    /** 玩家通过时的回调 */
     this.onPass = null;
+
+    /** 效果 Graphics 对象数组 */
+    this._effectGfx = [];
+    this._gfx       = null;
+    this._scene     = null;
   }
 
-  // ── 状态查询 ──────────────────────────────────────────────
-  getState()    { return this._state; }
-  isBlocking()   { return this._state === 'active' || this._state === 'idle'; }
-  isDead()       { return this._state === 'dead'; }
+  // ── 状态查询 ────────────────────────────────────────────
+  getState()     { return this._state; }
+  isBlocking()    { return this._state === 'active' || this._state === 'idle'; }
+  isDead()        { return this._state === 'dead'; }
 
-  // ── 状态转换 ──────────────────────────────────────────────
+  // ── 状态转换 ────────────────────────────────────────────
   activate() {
     if (this._state === 'dead' || this._state === 'sleeping') return;
     this._state = 'active';
     this._render();
   }
 
-  /** 睡眠 duration 毫秒后自动醒来 */
   sleep(durationMs) {
     if (this._state === 'dead') return;
     this._clearSleepTimer();
@@ -57,7 +62,7 @@ export class NPCModule {
     this._render();
   }
 
-  // ── 睡眠内部 ──────────────────────────────────────────────
+  // ── 睡眠内部 ─────────────────────────────────────────
   _wakeUp() {
     if (this._state === 'sleeping') {
       this._state = 'active';
@@ -66,36 +71,118 @@ export class NPCModule {
   }
 
   _clearSleepTimer() {
-    if (this._sleepTimer) {
-      clearTimeout(this._sleepTimer);
-      this._sleepTimer = null;
-    }
+    if (this._sleepTimer) { clearTimeout(this._sleepTimer); this._sleepTimer = null; }
   }
 
-  /** 获取剩余睡眠秒数，-1 表示未在睡眠 */
   getSleepSecondsLeft() {
     if (this._state !== 'sleeping') return -1;
     return Math.max(0, Math.ceil((this._sleepEndTime - Date.now()) / 1000));
   }
 
-  // ── 子类实现 ──────────────────────────────────────────────
-  /** 绑定 Phaser Graphics 对象（子类覆盖） */
-  bindGraphics(/** @type {Phaser.GameObjects.Graphics} */ gfx) {
-    this._gfx = gfx;
+  // ── 绑定 ──────────────────────────────────────────────
+  bindGraphics(gfx, scene) {
+    this._gfx   = gfx;
+    this._scene = scene;
     this._render();
   }
 
-  /** 根据当前状态重绘（子类覆盖） */
+  // ── 渲染主流程 ────────────────────────────────────────
   _render() {
-    // 基类实现为空
+    if (!this._gfx) return;
+    this._gfx.clear();
+    this._gfx.setPosition(0, 0);
+    this._gfx.setScale(1, 1);
+    this._gfx.setAlpha(1);
+    this._killEffects();
+
+    if (this._state === 'dead') return;
+
+    // 画本体
+    this.renderBody();
+
+    // 画装饰效果
+    const effects = this.getStateEffects(this._state);
+    for (const cfg of effects) {
+      this._renderEffect(cfg);
+    }
   }
 
-  /** 返回触发区域节点 id 列表 */
+  /**
+   * 子类覆盖：画 NPC 本体
+   * 坐标相对于 (0, 0)，外部已在 _gfx 上 setPosition(mx, my)
+   */
+  renderBody() {
+    // 基类为空，子类覆盖
+  }
+
+  /**
+   * 子类覆盖：返回装饰效果配置数组
+   * @param {string} state
+   * @returns {{ type: string, scale?: number }[]}
+   */
+  getStateEffects(state) {
+    return [];
+  }
+
+  // ── 效果渲染 ─────────────────────────────────────────
+  _renderEffect(cfg) {
+    if (!this._scene) return;
+    const gfx = this._scene.add.graphics().setDepth(51);
+    this._effectGfx.push(gfx);
+
+    if (cfg.type === 'fire') {
+      EffectModule.drawFire(gfx, 0, -20 * (cfg.scale ?? 1), cfg.scale ?? 1);
+      // 火焰抖动 tween
+      this._scene.tweens.add({
+        targets: gfx,
+        scaleX: { from: 0.9, to: 1.1 },
+        scaleY: { from: 0.9, to: 1.1 },
+        duration: 120,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else if (cfg.type === 'glow-red') {
+      EffectModule.drawGlow(gfx, 0, 0, 0xff4444);
+      // 光晕脉冲
+      this._scene.tweens.add({
+        targets: gfx,
+        alpha: { from: 0.5, to: 1 },
+        duration: 400,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else if (cfg.type === 'glow-blue') {
+      EffectModule.drawGlow(gfx, 0, 0, 0x64b5f6);
+      this._scene.tweens.add({
+        targets: gfx,
+        alpha: { from: 0.4, to: 0.9 },
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else if (cfg.type === 'sleep-bubble') {
+      EffectModule.drawSleepBubble(gfx, 0, 0, cfg.scale ?? 1);
+    }
+  }
+
+  _killEffects() {
+    for (const g of this._effectGfx) {
+      this._scene?.tweens.killTweensOf(g);
+      g.destroy();
+    }
+    this._effectGfx = [];
+  }
+
+  // ── 工具方法 ─────────────────────────────────────────
   getTriggerNodeIds() {
     return [this.edgeA, this.edgeB];
   }
 
   destroy() {
     this._clearSleepTimer();
+    this._killEffects();
   }
 }

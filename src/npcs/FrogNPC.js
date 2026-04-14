@@ -7,114 +7,101 @@ import { CONFIG }    from '../config.js';
 export class FrogNPC extends NPCModule {
   constructor(opts) {
     super(opts);
-    this._sleepDuration   = CONFIG.NPC?.FROG?.SLEEP_DURATION_MS ?? 5000;
+    this._sleepDuration = CONFIG.NPC?.FROG?.SLEEP_DURATION_MS ?? 5000;
+
+    /** 睡眠倒计时气泡（独立于 _effectGfx） */
     this._countdownGfx    = null;
     this._countdownText   = null;
     this._countdownInterval = null;
-    this._map = null;
-    this._scene = null;
   }
 
-  bindGraphics(gfx, scene) {
-    this._gfx = gfx;
-    this._scene = scene;
-    this._render();
-  }
+  // ── 渲染本体 ─────────────────────────────────────────
+  renderBody() {
+    const scale = this._state === 'idle' ? 0.6
+               : this._state === 'sleeping' ? 0.8 : 1.0;
 
-  _setGfxPosition(x, y) {
-    this._gfx.setPosition(x, y);
-    this._gfx.setScale(1, 1);
-    this._gfx.setAlpha(1);
-  }
+    // ── 身体（椭圆）────────────────────────────────
+    this._gfx.fillStyle(0x388e3c, 1);
+    this._gfx.fillEllipse(0, 4, 26 * scale, 20 * scale);
+    // ── 头部（圆头顶）────────────────────────────
+    this._gfx.fillCircle(0, -4, 14 * scale);
+    // ── 肚皮（浅绿）────────────────────────────
+    this._gfx.fillStyle(0x81c784, 1);
+    this._gfx.fillEllipse(0, 6, 16 * scale, 12 * scale);
 
-  _render() {
-    if (!this._gfx) return;
-    this._gfx.clear();
-    this._killCountdown();
+    // ── 眼睛（鼓出来的蛙眼）──────────────────
+    const eyeY  = -12 * scale;
+    const eyeXOff = 8 * scale;
+    const eyeR   = 7 * scale;
 
-    const nodeA = this._map?.getNode(this.edgeA);
-    const nodeB = this._map?.getNode(this.edgeB);
-    if (!nodeA || !nodeB) return;
-
-    const mx = (nodeA.x + nodeB.x) / 2;
-    const my = (nodeA.y + nodeB.y) / 2;
-
-    if (this._state === 'dead') {
-      return;
-    }
-
-    if (this._state === 'idle') {
-      this._drawFrog(mx, my, 0.6, 0x4caf50);
-      this._setGfxPosition(mx, my);
-    } else if (this._state === 'active') {
-      this._drawFrog(mx, my, 1.0, 0xf44336);
-      this._gfx.lineStyle(2, 0xff0000, 0.5);
-      this._gfx.strokeCircle(mx, my, 22);
-      this._setGfxPosition(mx, my);
-      if (this._scene) {
-        // 扑出缩放动画
-        this._scene.tweens.add({
-          targets: this._gfx,
-          scaleX: { from: 1.3, to: 1 },
-          scaleY: { from: 1.3, to: 1 },
-          duration: 200,
-          ease: 'Back.easeOut',
-        });
-        // 抖动动画
-        this._scene.tweens.add({
-          targets: this._gfx,
-          x: mx + 3,
-          duration: 60,
-          yoyo: true,
-          repeat: 3,
-          onComplete: () => { if (this._gfx) this._gfx.x = mx; },
-        });
-      }
-    } else if (this._state === 'sleeping') {
-      this._drawFrog(mx, my, 0.8, 0x2196f3);
-      this._setGfxPosition(mx, my);
-    }
-  }
-
-  _drawFrog(x, y, scale, bodyColor) {
-    const r = Math.round(14 * scale);
-    // 身体
-    this._gfx.fillStyle(0x2e7d32, 1);
-    this._gfx.fillCircle(x, y + 4, r);
-    this._gfx.fillCircle(x, y - r + 4, Math.round(r * 0.85));
-    // 眼睛
+    // 左眼
     this._gfx.fillStyle(0xffffff, 1);
-    this._gfx.fillCircle(x - 4, y - r + 2, 3);
-    this._gfx.fillCircle(x + 4, y - r + 2, 3);
-    this._gfx.fillStyle(0x000000, 1);
-    this._gfx.fillCircle(x - 4, y - r + 3, 1.5);
-    this._gfx.fillCircle(x + 4, y - r + 3, 1.5);
+    this._gfx.fillCircle(-eyeXOff, eyeY, eyeR);
+    this._gfx.fillStyle(0x1b5e20, 1);
+    this._gfx.fillCircle(-eyeXOff, eyeY, eyeR * 0.6);
+    this._gfx.fillStyle(0xffffff, 1);
+    this._gfx.fillCircle(-eyeXOff - 1.5 * scale, eyeY - 1.5 * scale, eyeR * 0.25);
+
+    // 右眼
+    this._gfx.fillStyle(0xffffff, 1);
+    this._gfx.fillCircle(eyeXOff, eyeY, eyeR);
+    this._gfx.fillStyle(0x1b5e20, 1);
+    this._gfx.fillCircle(eyeXOff, eyeY, eyeR * 0.6);
+    this._gfx.fillStyle(0xffffff, 1);
+    this._gfx.fillCircle(eyeXOff - 1.5 * scale, eyeY - 1.5 * scale, eyeR * 0.25);
+
+    // ── 微笑嘴巴 ────────────────────────────────
+    this._gfx.lineStyle(2, 0x1b5e20, 1);
+    this._gfx.beginPath();
+    this._gfx.arc(0, 2, 6 * scale, 0.2, Math.PI - 0.2, false);
+    this._gfx.strokePath();
+
+    // ── 后腿（小脚蹼）────────────────────────
+    this._gfx.fillStyle(0x388e3c, 1);
+    this._gfx.fillEllipse(-14 * scale, 12 * scale, 10 * scale, 6 * scale);
+    this._gfx.fillEllipse( 14 * scale, 12 * scale, 10 * scale, 6 * scale);
+    this._gfx.fillStyle(0x2e7d32, 1);
+    this._gfx.fillCircle(-18 * scale, 13 * scale, 2.5 * scale);
+    this._gfx.fillCircle( 18 * scale, 13 * scale, 2.5 * scale);
   }
 
-  _startCountdown(scene) {
-    if (!scene) return;
+  // ── 状态装饰效果配置 ───────────────────────────────
+  getStateEffects(state) {
+    if (state === 'active') {
+      return [
+        { type: 'fire',     scale: 1.0 },
+        { type: 'glow-red', scale: 1.0 },
+      ];
+    }
+    if (state === 'sleeping') {
+      return [
+        { type: 'glow-blue',    scale: 1.0 },
+        { type: 'sleep-bubble', scale: 0.8 },
+      ];
+    }
+    return [];
+  }
+
+  // ── 睡眠倒计时气泡（独立于效果层）────────────────
+  _startCountdown() {
     this._killCountdown();
+    if (!this._scene) return;
 
-    const nodeA = this._map?.getNode(this.edgeA);
-    const nodeB = this._map?.getNode(this.edgeB);
-    if (!nodeA || !nodeB) return;
-    const mx = (nodeA.x + nodeB.x) / 2;
-    const my = (nodeA.y + nodeB.y) / 2;
-
-    this._countdownGfx   = scene.add.graphics().setDepth(150);
-    this._countdownText  = scene.add.text(mx, my - 30, '', {
+    this._countdownGfx  = this._scene.add.graphics().setDepth(152);
+    this._countdownText = this._scene.add.text(0, -30, '', {
       fontSize: '16px', color: '#ffffff', stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(0.5).setDepth(151);
+    }).setOrigin(0.5).setDepth(153);
 
     this._countdownInterval = setInterval(() => {
       const left = this.getSleepSecondsLeft();
       if (left < 0) { this._killCountdown(); return; }
+
       if (this._countdownGfx) {
         this._countdownGfx.clear();
         const radius = 10 + left * 2;
-        const red = Math.min(255, (5 - left) * 50);
+        const red    = Math.min(255, (5 - left) * 50);
         this._countdownGfx.fillStyle(Phaser.Display.Color.GetColor(red, 50, 50), 0.85);
-        this._countdownGfx.fillCircle(mx, my - 30, radius);
+        this._countdownGfx.fillCircle(0, -30, radius);
       }
       if (this._countdownText) {
         this._countdownText.setText(left > 0 ? String(left) : '!');
@@ -124,20 +111,14 @@ export class FrogNPC extends NPCModule {
 
   _killCountdown() {
     if (this._countdownInterval) { clearInterval(this._countdownInterval); this._countdownInterval = null; }
-    this._countdownGfx?.destroy();   this._countdownGfx  = null;
-    this._countdownText?.destroy();  this._countdownText = null;
+    this._countdownGfx?.destroy();  this._countdownGfx  = null;
+    this._countdownText?.destroy(); this._countdownText = null;
   }
 
+  // ── 公开方法 ───────────────────────────────────────
   startCountdownUI(scene) {
-    this._startCountdown(scene);
-  }
-
-  bindMap(mapModule) {
-    this._map = mapModule;
-  }
-
-  getTriggerNodeIds() {
-    return [this.edgeA, this.edgeB];
+    // scene 在 bindGraphics 时已存入 this._scene，直接用
+    this._startCountdown();
   }
 
   destroy() {
