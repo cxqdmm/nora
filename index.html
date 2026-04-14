@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>毛毛虫找家 🐛</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a2e0a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+    }
+    #game-container canvas {
+      display: block;
+      image-rendering: auto;
+    }
+  </style>
+
+  <!-- importmap：让浏览器把 "phaser" 解析为 CDN 地址 -->
+  <script type="importmap">
+  {
+    "imports": {
+      "phaser": "https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.esm.min.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="game-container"></div>
+
+  <!-- Phaser 必须先作为普通脚本加载，才能让 ES module 使用全局 Phaser 变量 -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

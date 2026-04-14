@@ -1,0 +1,78 @@
+<h2>青蛙坐在树枝中间</h2>
+<p class="subtitle">毛毛虫到达树枝任意一端，青蛙立即激活</p>
+
+<div class="mockup">
+  <div class="mockup-header">俯视示意图</div>
+  <div class="mockup-body" style="position:relative; background:linear-gradient(to bottom, #b8e4a0, #7dbf58); height:340px; overflow:hidden; font-family:sans-serif;">
+
+    <!-- 起点节点 -->
+    <div style="position:absolute; left:360px; top:270px; display:flex; flex-direction:column; align-items:center;">
+      <div style="width:28px; height:28px; background:#64b5f6; border-radius:50%; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+      <div style="font-size:11px; color:#333; margin-top:4px;">起点</div>
+    </div>
+
+    <!-- 树枝（起点 → 青蛙处） -->
+    <svg style="position:absolute; top:0; left:0; width:100%; height:100%;">
+      <path d="M 374 275 Q 374 230 374 190" stroke="#7a4f1e" stroke-width="16" fill="none" stroke-linecap="round"/>
+      <path d="M 374 190 Q 374 150 374 120" stroke="#7a4f1e" stroke-width="16" fill="none" stroke-linecap="round"/>
+    </svg>
+
+    <!-- 青蛙坐在树枝中间 -->
+    <div style="position:absolute; left:340px; top:152px; display:flex; flex-direction:column; align-items:center;">
+      <div style="font-size:32px; filter:drop-shadow(0 3px 4px rgba(0,0,0,0.4));">🐸</div>
+      <div style="background:#c62828; color:white; font-size:9px; padding:2px 8px; border-radius:10px; margin-top:2px;">攻击状态</div>
+    </div>
+
+    <!-- 触发点1（左端）标注 -->
+    <div style="position:absolute; left:340px; top:258px; width:68px; display:flex; justify-content:center;">
+      <div style="background:#ff9800; color:white; font-size:9px; padding:2px 8px; border-radius:10px; white-space:nowrap;">← 触发点</div>
+    </div>
+
+    <!-- 上方节点 -->
+    <div style="position:absolute; left:360px; top:60px; display:flex; flex-direction:column; align-items:center;">
+      <div style="width:28px; height:28px; background:#b8924a; border-radius:50%; border:2px solid white; box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+      <div style="font-size:11px; color:#333; margin-top:4px;">上方节点</div>
+    </div>
+
+    <!-- 触发点2（上方端）标注 -->
+    <div style="position:absolute; left:370px; top:118px; width:68px; display:flex; justify-content:center;">
+      <div style="background:#ff9800; color:white; font-size:9px; padding:2px 8px; border-radius:10px; white-space:nowrap;">触发点 →</div>
+    </div>
+
+    <!-- 毛毛虫在起点 -->
+    <div style="position:absolute; left:352px; top:242px; font-size:20px; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));">🐛</div>
+
+    <!-- 说明框 -->
+    <div style="position:absolute; right:16px; top:12px; background:rgba(0,0,0,0.65); color:white; font-size:12px; padding:14px 16px; border-radius:12px; line-height:2;">
+      <b style="color:#ffcc00;">🐸 青蛙占一节树枝</b><br/>
+      位于节点 A 和节点 B 之间<br/><br/>
+      <b style="color:#ff9800;">⚡ 触发条件</b><br/>
+      毛毛虫移动到节点 A → 激活<br/>
+      毛毛虫移动到节点 B → 激活<br/><br/>
+      <b style="color:#81c784;">✅ 优势</b><br/>
+      不需要额外节点<br/>
+      复用现有树枝结构
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:14px; font-size:13px; color:#555; font-family:sans-serif;">
+  这样青蛙就是树枝的一部分，节点 A 和节点 B 任意一个被毛毛虫进入时，青蛙立刻扑过来。
+</p>
+
+<div class="options">
+  <div class="option" data-choice="clear" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>这个设计很清晰</h3>
+      <p>青蛙在树枝上，两端触发，逻辑简洁</p>
+    </div>
+  </div>
+  <div class="option" data-choice="ok" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>可以，有细节想讨论</h3>
+      <p>想进一步调整触发时机或青蛙行为</p>
+    </div>
+  </div>
+</div>
