@@ -115,6 +115,42 @@ export class FrogNPC extends NPCModule {
     this._countdownText?.destroy(); this._countdownText = null;
   }
 
+  // ── 徽章渲染（跟随 NPC 位置）──────────────────────────────
+  _renderCostBadge() {
+    if (!this._costBg || !this._costText) return;
+    const cost    = this.getSneakEnergyCost();
+    const badgeX  = this._mx + 20;
+    const badgeY  = this._my - 20;
+    const radius  = 14;
+
+    this._costBg.clear();
+    this._costBg.fillStyle(0xff4444, 0.9);
+    this._costBg.fillCircle(badgeX, badgeY, radius);
+
+    this._costText.setPosition(badgeX, badgeY);
+    this._costText.setText(`⚡${cost}`);
+  }
+
+  // ── 覆盖基类 bindGraphics：创建徽章对象 ─────────────────
+  bindGraphics(gfx, scene) {
+    super.bindGraphics(gfx, scene);
+    // 能量消耗徽章（背景圆 + 文字）
+    this._costBg = this._scene.add.graphics().setDepth(155);
+    this._costText = this._scene.add.text(0, 0, '', {
+      fontSize: '12px',
+      fontFamily: 'Microsoft YaHei, sans-serif',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(156);
+  }
+
+  // ── 覆盖基类 _render：渲染完成后更新徽章 ─────────────────
+  _render() {
+    super._render();
+    this._renderCostBadge();
+  }
+
   // ── 公开方法 ───────────────────────────────────────
   startCountdownUI(scene) {
     // scene 在 bindGraphics 时已存入 this._scene，直接用
@@ -123,6 +159,8 @@ export class FrogNPC extends NPCModule {
 
   destroy() {
     this._killCountdown();
+    this._costBg?.destroy();
+    this._costText?.destroy();
     super.destroy();
   }
 }
