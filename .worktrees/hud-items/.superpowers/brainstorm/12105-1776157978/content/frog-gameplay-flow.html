@@ -1,0 +1,119 @@
+<h2>青蛙障碍 · 完整交互流程</h2>
+<p class="subtitle">从触发到解决的完整状态机</p>
+
+<div class="mockup">
+  <div class="mockup-header">状态流程图</div>
+  <div class="mockup-body" style="font-family:sans-serif; padding:20px; background:#f5f5f5;">
+
+    <!-- 流程图用 flex + CSS 箭头 -->
+    <div style="display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; margin-bottom:24px;">
+
+      <div style="background:#e8f5e9; border:2px solid #4caf50; border-radius:12px; padding:12px 18px; text-align:center; min-width:100px;">
+        <div style="font-size:24px;">🐛</div>
+        <div style="font-size:12px; font-weight:bold; margin-top:4px;">正常移动</div>
+      </div>
+
+      <div style="font-size:24px; color:#999;">→</div>
+
+      <div style="background:#fff3e0; border:2px solid #ff9800; border-radius:12px; padding:12px 18px; text-align:center; min-width:100px;">
+        <div style="font-size:24px;">🐸</div>
+        <div style="font-size:12px; font-weight:bold; margin-top:4px;">青蛙激活</div>
+        <div style="font-size:10px; color:#666; margin-top:2px;">暂停 · 弹出道具盘</div>
+      </div>
+
+      <div style="font-size:24px; color:#999;">→</div>
+
+      <div style="background:#fce4ec; border:2px solid #e91e63; border-radius:12px; padding:12px 18px; text-align:center; min-width:100px;">
+        <div style="font-size:24px;">🗡️</div>
+        <div style="font-size:12px; font-weight:bold; margin-top:4px;">小刀飞出</div>
+        <div style="font-size:10px; color:#666; margin-top:2px;">动画 → 青蛙消失</div>
+      </div>
+
+      <div style="font-size:24px; color:#999;">→</div>
+
+      <div style="background:#e8f5e9; border:2px solid #4caf50; border-radius:12px; padding:12px 18px; text-align:center; min-width:100px;">
+        <div style="font-size:24px;">🐛</div>
+        <div style="font-size:12px; font-weight:bold; margin-top:4px;">继续前进</div>
+      </div>
+    </div>
+
+    <!-- 催眠药分支 -->
+    <div style="display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; margin-bottom:16px;">
+      <div style="background:#fff3e0; border:2px dashed #ff9800; border-radius:12px; padding:10px 16px; text-align:center; min-width:90px; opacity:0.7;">
+        <div style="font-size:18px;">💤</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:4px;">催眠药</div>
+      </div>
+
+      <div style="font-size:20px; color:#999;">→</div>
+
+      <div style="background:#e3f2fd; border:2px solid #2196f3; border-radius:12px; padding:10px 16px; text-align:center; min-width:90px;">
+        <div style="font-size:18px;">🐸💤</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:4px;">青蛙睡着</div>
+        <div style="font-size:10px; color:#1565c0; margin-top:2px;">⏱️ 倒计时</div>
+      </div>
+
+      <div style="font-size:20px; color:#999;">→</div>
+
+      <div style="background:#fff8e1; border:2px solid #ffc107; border-radius:12px; padding:10px 16px; text-align:center; min-width:90px;">
+        <div style="font-size:18px;">⏳</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:4px;">倒计时结束</div>
+        <div style="font-size:10px; color:#666; margin-top:2px;">返回激活状态</div>
+      </div>
+    </div>
+
+    <!-- 偷偷溜分支 -->
+    <div style="display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px;">
+      <div style="background:#fce4ec; border:2px dashed #e91e63; border-radius:12px; padding:10px 16px; text-align:center; min-width:90px; opacity:0.7;">
+        <div style="font-size:18px;">🤫</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:4px;">偷偷溜</div>
+      </div>
+
+      <div style="font-size:20px; color:#999;">→</div>
+
+      <div style="background:#ffebee; border:2px solid #f44336; border-radius:12px; padding:10px 16px; text-align:center; min-width:110px;">
+        <div style="font-size:18px;">💥</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:4px;">能量惩罚</div>
+        <div style="font-size:10px; color:#c62828; margin-top:2px;">⚡ -固定能量值</div>
+      </div>
+
+      <div style="font-size:20px; color:#999;">→</div>
+
+      <div style="background:#e8f5e9; border:2px solid #4caf50; border-radius:12px; padding:10px 16px; text-align:center; min-width:90px;">
+        <div style="font-size:18px;">🐛</div>
+        <div style="font-size:11px; font-weight:bold; margin-top:4px;">强制通过</div>
+        <div style="font-size:10px; color:#666; margin-top:2px;">到达目标节点</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:16px;">
+  <h3 style="font-family:sans-serif; margin-bottom:8px;">道具获取</h3>
+  <p style="font-family:sans-serif; font-size:13px; color:#444; margin:0;">
+    吃食物时，有概率掉落道具（小刀 / 催眠药）。道具自动添加到背包，可以多次使用。背包容量无限。
+  </p>
+</div>
+
+<div class="section" style="margin-top:12px;">
+  <h3 style="font-family:sans-serif; margin-bottom:8px;">道具面板 UI</h3>
+  <p style="font-family:sans-serif; font-size:13px; color:#444; margin:0;">
+    激活时弹出道具栏，道具按类型分组（近战武器 / 药品 / 逃跑）。有小刀显示小刀按钮，有催眠药显示催眠药按钮，有道具时对应按钮亮起，否则灰色不可点击。
+  </p>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="clear" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>设计清晰，没问题</h3>
+      <p>流程、道具、UI 都确认了</p>
+    </div>
+  </div>
+  <div class="option" data-choice="adjust" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>有细节想调整</h3>
+      <p>催眠药时长、能量惩罚值、UI 布局等</p>
+    </div>
+  </div>
+</div>

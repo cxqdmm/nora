@@ -1,0 +1,93 @@
+<h2>青蛙障碍如何融入节点地图？</h2>
+<p class="subtitle">展示现有树枝结构上插入青蛙障碍的布局方式</p>
+
+<div class="mockup">
+  <div class="mockup-header">节点结构示意图（800×600 画布）</div>
+  <div class="mockup-body" style="position:relative; background:linear-gradient(to bottom, #b8e4a0, #7dbf58); height:380px; overflow:hidden;">
+
+    <!-- 普通树枝 -->
+    <svg style="position:absolute;top:0;left:0;width:100%;height:100%;" viewBox="0 0 800 380">
+      <!-- 树枝线 -->
+      <path d="M 400 340 Q 400 300 400 260" stroke="#7a4f1e" stroke-width="14" fill="none" stroke-linecap="round"/>
+      <path d="M 400 260 Q 400 220 400 180" stroke="#7a4f1e" stroke-width="14" fill="none" stroke-linecap="round"/>
+      <path d="M 400 180 Q 380 150 350 120" stroke="#7a4f1e" stroke-width="14" fill="none" stroke-linecap="round"/>
+      <path d="M 400 180 Q 420 150 450 120" stroke="#7a4f1e" stroke-width="14" fill="none" stroke-linecap="round"/>
+    </svg>
+
+    <!-- 起点节点 -->
+    <div style="position:absolute; left:370px; top:310px; width:60px; height:60px;">
+      <div style="width:28px; height:28px; background:#64b5f6; border-radius:50%; border:2px solid white; margin:auto; box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+      <div style="text-align:center; font-size:11px; color:#333; margin-top:4px; font-family:sans-serif;">起点</div>
+    </div>
+
+    <!-- 中间节点 -->
+    <div style="position:absolute; left:370px; top:235px; width:60px; height:60px;">
+      <div style="width:28px; height:28px; background:#b8924a; border-radius:50%; border:2px solid white; margin:auto; box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+    </div>
+
+    <!-- ========== 青蛙区域 ========== -->
+    <!-- 触发区域1（左） -->
+    <div style="position:absolute; left:328px; top:148px; width:50px; height:50px; border:3px dashed #ff9800; border-radius:50%; background:rgba(255,152,0,0.15); display:flex; align-items:center; justify-content:center;">
+      <span style="font-size:10px; color:#e65100; font-family:sans-serif;">触发</span>
+    </div>
+
+    <!-- 青蛙本体 -->
+    <div style="position:absolute; left:362px; top:145px; width:76px; height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div style="font-size:36px; line-height:1;">🐸</div>
+      <div style="background:#c62828; color:white; font-size:9px; padding:1px 6px; border-radius:8px; margin-top:2px; font-family:sans-serif;">攻击状态</div>
+    </div>
+
+    <!-- 触发区域2（右） -->
+    <div style="position:absolute; left:422px; top:148px; width:50px; height:50px; border:3px dashed #ff9800; border-radius:50%; background:rgba(255,152,0,0.15); display:flex; align-items:center; justify-content:center;">
+      <span style="font-size:10px; color:#e65100; font-family:sans-serif;">触发</span>
+    </div>
+
+    <!-- 上方分叉节点 -->
+    <div style="position:absolute; left:320px; top:85px; width:60px; height:60px;">
+      <div style="width:28px; height:28px; background:#b8924a; border-radius:50%; border:2px solid white; margin:auto; box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+    </div>
+    <div style="position:absolute; left:420px; top:85px; width:60px; height:60px;">
+      <div style="width:28px; height:28px; background:#b8924a; border-radius:50%; border:2px solid white; margin:auto; box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>
+    </div>
+
+    <!-- 家节点 -->
+    <div style="position:absolute; left:362px; top:20px; width:76px; height:56px; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div style="font-size:28px;">🏠</div>
+      <div style="font-size:10px; color:#333; font-family:sans-serif;">家</div>
+    </div>
+
+    <!-- 毛毛虫 -->
+    <div style="position:absolute; left:352px; top:218px; font-size:22px; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.4));">🐛</div>
+
+    <!-- 标签 -->
+    <div style="position:absolute; right:20px; top:10px; background:rgba(0,0,0,0.6); color:white; font-size:11px; padding:8px 12px; border-radius:8px; font-family:sans-serif; line-height:1.8;">
+      <b>图例</b><br/>
+      🔵 起点节点<br/>
+      🟡 普通节点<br/>
+      🏠 家节点<br/>
+      🟠 触发区域（虚线框）<br/>
+      🐸 青蛙障碍（占据节点间）
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:12px; font-size:13px; color:#555; font-family:sans-serif;">
+  <b>逻辑说明：</b>毛毛虫在节点之间移动，当进入 <span style="color:#e65100; font-weight:bold;">橙色虚线触发区域</span> 时，青蛙激活并暂停游戏，玩家需要选择道具或偷偷溜过去。
+</p>
+
+<div class="options">
+  <div class="option" data-choice="clear" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>布局清晰，理解了</h3>
+      <p>青蛙在节点间占位，触发区域在两侧，逻辑很直接</p>
+    </div>
+  </div>
+  <div class="option" data-choice="confused" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>有疑问，想调整</h3>
+      <p>触发区域的放置方式或青蛙的占位逻辑需要讨论</p>
+    </div>
+  </div>
+</div>

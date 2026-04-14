@@ -26,8 +26,6 @@ export class NPCModule {
     this._effectGfx = [];
     this._gfx       = null;
     this._scene     = null;
-    this._mx = 0;
-    this._my = 0;
   }
 
   // ── 状态查询 ────────────────────────────────────────────
@@ -82,10 +80,6 @@ export class NPCModule {
   }
 
   // ── 绑定 ──────────────────────────────────────────────
-  bindMap(mapModule) {
-    this._map = mapModule;
-  }
-
   bindGraphics(gfx, scene) {
     this._gfx   = gfx;
     this._scene = scene;
@@ -94,24 +88,16 @@ export class NPCModule {
 
   // ── 渲染主流程 ────────────────────────────────────────
   _render() {
-    console.log('[NPC] _render state:', this._state, 'gfx:', !!this._gfx, 'scene:', !!this._scene);
     if (!this._gfx) return;
-    const nodeA = this._map?.getNode(this.edgeA);
-    const nodeB = this._map?.getNode(this.edgeB);
-    if (!nodeA || !nodeB) return;
-
-    this._mx = (nodeA.x + nodeB.x) / 2;
-    this._my = (nodeA.y + nodeB.y) / 2;
-
     this._gfx.clear();
-    this._gfx.setPosition(mx, my);
+    this._gfx.setPosition(0, 0);
     this._gfx.setScale(1, 1);
     this._gfx.setAlpha(1);
     this._killEffects();
 
     if (this._state === 'dead') return;
 
-    // 画本体（局部坐标 0,0）
+    // 画本体
     this.renderBody();
 
     // 画装饰效果
@@ -131,19 +117,17 @@ export class NPCModule {
 
   /**
    * 子类覆盖：返回装饰效果配置数组
-   * @param {string} _state （子类实现时使用）
+   * @param {string} state
    * @returns {{ type: string, scale?: number }[]}
    */
-  getStateEffects(_state) {
+  getStateEffects(state) {
     return [];
   }
 
   // ── 效果渲染 ─────────────────────────────────────────
   _renderEffect(cfg) {
-    console.log('[NPC] _renderEffect called:', cfg.type, 'mx:', this._mx, 'my:', this._my);
     if (!this._scene) return;
     const gfx = this._scene.add.graphics().setDepth(51);
-    gfx.setPosition(this._mx, this._my);
     this._effectGfx.push(gfx);
 
     if (cfg.type === 'fire') {
