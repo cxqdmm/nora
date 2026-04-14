@@ -22,8 +22,9 @@ export class GameScene extends Phaser.Scene {
 
   // ── 接收关卡参数 ──────────────────────────────────────────
   init(data) {
-    this._levelId = data?.levelId ?? 1;
-    this._items   = new ItemModule();
+    this._levelId    = data?.levelId ?? 1;
+    this._items      = new ItemModule();
+    this._prevNodeId = null;
   }
 
   // ── 创建 ─────────────────────────────────────────────────
@@ -55,7 +56,12 @@ export class GameScene extends Phaser.Scene {
       if (levelData.npcs) {
         for (const npcDef of levelData.npcs) {
           if (npcDef.type === 'frog') {
-            const frog = new FrogNPC({ id: npcDef.id, edgeA: npcDef.edgeA, edgeB: npcDef.edgeB });
+            const frog = new FrogNPC({
+              id: npcDef.id,
+              edgeA: npcDef.edgeA,
+              edgeB: npcDef.edgeB,
+              sneakEnergyCost: npcDef.sneakEnergyCost,
+            });
             this._map.registerNPC(frog);
           }
         }
@@ -123,6 +129,9 @@ export class GameScene extends Phaser.Scene {
         // 点击了不相邻节点，不响应
         return;
       }
+
+      // 记录离开前的节点（用于判断是否离开了青蛙的边）
+      this._prevNodeId = curId;
 
       // 高亮取消
       this._map.clearHighlight();
@@ -198,6 +207,19 @@ export class GameScene extends Phaser.Scene {
 
     // 刷新高亮
     this._refreshHighlight();
+
+    // ── 如果离开了青蛙所在的边，重置该青蛙 ───────────────────
+    // _prevNodeId 是离开前的节点；若它属于某青蛙的边，而当前节点不属于，则重置
+    if (this._prevNodeId !== null && this._prevNodeId !== nodeId) {
+      for (const npc of this._map._npcs.values()) {
+        const edgeNodes = npc.getTriggerNodeIds();
+        const wasOnEdge = edgeNodes.includes(this._prevNodeId);
+        const isOnEdge  = edgeNodes.includes(nodeId);
+        if (wasOnEdge && !isOnEdge) {
+          npc.reset();
+        }
+      }
+    }
   }
 
   // ── 高亮可点击的相邻节点 ──────────────────────────────────
