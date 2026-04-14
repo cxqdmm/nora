@@ -15,6 +15,8 @@ export class NPCModule {
     this.id     = opts.id;
     this.edgeA  = opts.edgeA;
     this.edgeB  = opts.edgeB;
+    // 偷偷溜过的能量消耗（可由子类/关卡覆盖）
+    this._sneakEnergyCost = opts.sneakEnergyCost ?? CONFIG.NPC?.FROG?.SNEAK_ENERGY_COST ?? 20;
     this._state = 'idle';   // 'idle' | 'active' | 'sleeping' | 'dead'
     this._sleepDuration = CONFIG.NPC?.FROG?.SLEEP_DURATION_MS ?? 5000;
     this._sleepTimer   = null;
@@ -200,5 +202,10 @@ export class NPCModule {
   destroy() {
     this._clearSleepTimer();
     this._killEffects();
+  }
+
+  // ── 能量消耗查询 ─────────────────────────────────────────
+  getSneakEnergyCost() {
+    return this._sneakEnergyCost;
   }
 }
