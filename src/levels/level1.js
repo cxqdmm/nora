@@ -62,4 +62,14 @@ export const LEVEL1 = {
   ],
 
   hint: '小心！左边那条路是死路哦，但有美食等你~',
+
+  // NPC 障碍配置
+  npcs: [
+    {
+      id: 'frog_1',
+      type: 'frog',
+      edgeA: 3,  // 节点 3
+      edgeB: 5,  // 节点 5
+    },
+  ],
 };

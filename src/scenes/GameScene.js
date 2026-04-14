@@ -7,6 +7,9 @@ import { CaterpillarModule }  from '../modules/CaterpillarModule.js';
 import { FoodModule }         from '../modules/FoodModule.js';
 import { EnergyModule }       from '../modules/EnergyModule.js';
 import { UIModule }           from '../modules/UIModule.js';
+import { ItemModule }         from '../modules/ItemModule.js';
+import { ObstaclePanel }      from '../ui/ObstaclePanel.js';
+import { FrogNPC }            from '../npcs/FrogNPC.js';
 import { LEVEL1 }             from '../levels/level1.js';
 import { LEVEL2 }             from '../levels/level2.js';
 import { LEVEL3 }             from '../levels/level3.js';
@@ -21,6 +24,7 @@ export class GameScene extends Phaser.Scene {
   // ── 接收关卡参数 ──────────────────────────────────────────
   init(data) {
     this._levelId = data?.levelId ?? 1;
+    this._items   = new ItemModule();
   }
 
   // ── 创建 ─────────────────────────────────────────────────
@@ -47,6 +51,16 @@ export class GameScene extends Phaser.Scene {
       this._food.create(levelData);
       this._cat.create(levelData.startNode);
       this._ui.create(levelData);
+
+      // ── 注册 NPC ─────────────────────────────────────────
+      if (levelData.npcs) {
+        for (const npcDef of levelData.npcs) {
+          if (npcDef.type === 'frog') {
+            const frog = new FrogNPC({ id: npcDef.id, edgeA: npcDef.edgeA, edgeB: npcDef.edgeB });
+            this._map.registerNPC(frog);
+          }
+        }
+      }
 
       // ── 绑定事件 ────────────────────────────────────────
       this._bindEvents();
@@ -127,6 +141,15 @@ export class GameScene extends Phaser.Scene {
   _onArrived(nodeId) {
     if (this._gameOver) return;
 
+    // ── NPC 触发检测 ───────────────────────────────────────
+    const blockingNpcs = this._map.getBlockingNpcsAtNode(nodeId);
+    if (blockingNpcs.length > 0) {
+      const npc = blockingNpcs[0];  // 取第一个拦路的 NPC
+      npc.activate();
+      this._showObstaclePanel(npc);
+      return;  // 暂停，等待玩家操作
+    }
+
     // 扣除移动能量
     if (this._pendingDrain > 0) {
       this._energy.drain(this._pendingDrain);
@@ -140,6 +163,17 @@ export class GameScene extends Phaser.Scene {
       this._energy.restore(gained);
       const node = this._map.getNode(nodeId);
       this._ui.showFoodPickup(node.x, node.y, `+${gained} ⚡`);
+    }
+
+    // 道具掉落检测
+    const foodType = this._food.getLastFoodType?.(nodeId);
+    if (foodType) {
+      const dropped = this._items.rollDrop(foodType);
+      if (dropped) {
+        this._items.addItem(dropped);
+        const icon = dropped === 'knife' ? '🗡️' : '💤';
+        this._ui.showMessage(`${icon} 获得道具！`, 2000);
+      }
     }
 
     // 检查是否到达终点
@@ -235,6 +269,79 @@ export class GameScene extends Phaser.Scene {
     this._ui.showMessage('🎉 找到家啦！太棒了！', 3000);
   }
 
+  // ── 道具选择面板 ──────────────────────────────────────────
+  _showObstaclePanel(npc) {
+    this._obstaclePanel = new ObstaclePanel(this, this._items, npc, {
+      onKnife: () => this._handleKnife(npc),
+      onPotion: () => this._handlePotion(npc),
+      onSneak: () => this._handleSneak(npc),
+    });
+    this._obstaclePanel.show();
+  }
+
+  _handleKnife(npc) {
+    // 飞刀动画
+    this._playKnifeAnimation(npc, () => {
+      npc.kill();
+      this._resumeAfterObstacle();
+    });
+  }
+
+  _handlePotion(npc) {
+    const duration = CONFIG.NPC?.FROG?.SLEEP_DURATION_MS ?? 5000;
+    npc.sleep(duration);
+    npc.startCountdownUI(this);
+    this._resumeAfterObstacle();
+  }
+
+  _handleSneak(npc) {
+    const sneakCost = CONFIG.NPC?.FROG?.SNEAK_ENERGY_COST ?? 20;
+    this._energy.drain(sneakCost);
+    this._ui.showMessage(`🤫 偷偷溜过，消耗 ⚡${sneakCost} 能量`, 2000);
+    npc.reset();
+    this._resumeAfterObstacle();
+  }
+
+  _resumeAfterObstacle() {
+    if (this._obstaclePanel) {
+      this._obstaclePanel.destroy();
+      this._obstaclePanel = null;
+    }
+    this._refreshHighlight();
+  }
+
+  // ── 飞刀动画 ─────────────────────────────────────────────
+  _playKnifeAnimation(npc, onComplete) {
+    const catPos = this._cat.getHeadPosition?.() ?? { x: 0, y: 0 };
+    const na = this._map.getNode(npc.edgeA);
+    const nb = this._map.getNode(npc.edgeB);
+    if (!na || !nb) { onComplete?.(); return; }
+    const targetX = (na.x + nb.x) / 2;
+    const targetY = (na.y + nb.y) / 2;
+
+    const knifeGfx = this.scene.add.graphics();
+    // 画小刀形状
+    knifeGfx.fillStyle(0xcfd8dc, 1);
+    knifeGfx.fillRect(-12, -3, 24, 6);
+    knifeGfx.fillStyle(0xffd700, 1);
+    knifeGfx.fillRect(-4, -6, 8, 12);
+    knifeGfx.setPosition(catPos.x, catPos.y);
+    knifeGfx.setDepth(200);
+
+    this.scene.tweens.add({
+      targets: knifeGfx,
+      x: targetX,
+      y: targetY,
+      angle: 360 * 2,
+      duration: 300,
+      ease: 'Power1',
+      onComplete: () => {
+        knifeGfx.destroy();
+        onComplete?.();
+      },
+    });
+  }
+
   // ── 返回菜单按钮 ──────────────────────────────────────────
   _addBackButton() {
     const gfx = this.add.graphics().setScrollFactor(0).setDepth(100);
@@ -261,6 +368,7 @@ export class GameScene extends Phaser.Scene {
 
   // ── 销毁 ─────────────────────────────────────────────────
   shutdown() {
+    this._obstaclePanel?.destroy();
     this._map?.destroy();
     this._food?.destroy();
     this._cat?.destroy();

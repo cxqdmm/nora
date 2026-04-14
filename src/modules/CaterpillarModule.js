@@ -206,6 +206,16 @@ export class CaterpillarModule {
 
   // ── 公开状态 ──────────────────────────────────────────────
   getCurrentNodeId() { return this._currentNodeId; }
+
+  /**
+   * 返回毛毛虫头部当前位置（像素坐标）
+   * @returns {{ x: number, y: number }}
+   */
+  getHeadPosition() {
+    const head = this._posHistory[0];
+    return head ? { x: head.x, y: head.y } : { x: 0, y: 0 };
+  }
+
   isMoving()         { return this._moving; }
 
   // ── 销毁 ─────────────────────────────────────────────────

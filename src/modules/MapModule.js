@@ -46,6 +46,10 @@ export class MapModule {
     this._nodeSprites = new Map();  // id → { circle, glow }
     /** 当前高亮的节点 id 集合 */
     this._highlighted = new Set();
+    /** NPC 实例映射 id → NPCModule */
+    this._npcs = new Map();
+    /** 每个节点关联的 NPC id 列表 */
+    this._nodeNpcs = new Map();
 
     this._buildGraph();
   }
@@ -60,6 +64,46 @@ export class MapModule {
       this._adj.get(a).add(b);
       this._adj.get(b).add(a);
     }
+  }
+
+  // ── NPC 管理 ──────────────────────────────────────────────
+  /**
+   * 注册一个 NPC
+   * @param {import('../npcs/NPCModule').NPCModule} npc
+   */
+  registerNPC(npc) {
+    this._npcs.set(npc.id, npc);
+    npc.bindMap(this);
+    // 绑定渲染 Graphics（由 MapModule 创建）
+    const gfx = this.scene.add.graphics().setDepth(50);
+    npc.bindGraphics(gfx);
+    // 更新节点 → NPC 映射
+    for (const nodeId of npc.getTriggerNodeIds()) {
+      if (!this._nodeNpcs.has(nodeId)) {
+        this._nodeNpcs.set(nodeId, []);
+      }
+      this._nodeNpcs.get(nodeId).push(npc.id);
+    }
+  }
+
+  /**
+   * 获取某节点关联的 NPC id 列表
+   * @param {number} nodeId
+   * @returns {string[]}
+   */
+  getNpcsAtNode(nodeId) {
+    return this._nodeNpcs.get(nodeId) ?? [];
+  }
+
+  /**
+   * 获取某节点关联的、处于阻挡状态的 NPC
+   * @param {number} nodeId
+   * @returns {import('../npcs/NPCModule').NPCModule[]}
+   */
+  getBlockingNpcsAtNode(nodeId) {
+    return this.getNpcsAtNode(nodeId)
+      .map(id => this._npcs.get(id))
+      .filter(npc => npc && npc.isBlocking());
   }
 
   // ── 公开 API：数据查询 ────────────────────────────────────
@@ -341,5 +385,11 @@ export class MapModule {
       gfx.destroy();
       zone.destroy();
     }
+    // 清理 NPC
+    for (const npc of this._npcs.values()) {
+      npc.destroy();
+    }
+    this._npcs.clear();
+    this._nodeNpcs.clear();
   }
 }

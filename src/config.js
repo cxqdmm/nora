@@ -65,4 +65,21 @@ export const CONFIG = {
     BAR_COLOR_LOW:  0xff4444,
     LOW_THRESHOLD:  0.25,         // 能量低于 25% 显示红色
   },
+
+  // ---------- 道具 ----------
+  ITEMS: {
+    DROP_CHANCE: {
+      leaf:  { knife: 0.20, potion: 0    },
+      berry: { knife: 0    , potion: 0.20 },
+      apple: { knife: 0.15 , potion: 0.15 },
+    },
+  },
+
+  // ---------- NPC ----------
+  NPC: {
+    FROG: {
+      SLEEP_DURATION_MS: 5000,
+      SNEAK_ENERGY_COST: 20,
+    },
+  },
 };

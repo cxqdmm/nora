@@ -46,6 +46,15 @@ export class FoodModule {
     return food.energyValue;
   }
 
+  /**
+   * 查询某节点的食物类型（用于掉落检测）
+   * @param {number} nodeId
+   * @returns {string|null}
+   */
+  getLastFoodType(nodeId) {
+    return this._foods.get(nodeId)?.type ?? null;
+  }
+
   getFoodAt(nodeId) {
     return this._foods.get(nodeId) ?? null;
   }
