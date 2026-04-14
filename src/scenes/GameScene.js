@@ -149,7 +149,7 @@ export class GameScene extends Phaser.Scene {
       const npc = blockingNpcs[0];
       npc.activate();
       // 直接偷偷溜：扣能量，青蛙保持 active 状态（特效持续显示）
-      const sneakCost = CONFIG.NPC?.FROG?.SNEAK_ENERGY_COST ?? 20;
+      const sneakCost = npc.getSneakEnergyCost();
       this._energy.drain(sneakCost);
       this._ui.showMessage(`🤫 偷偷溜过，消耗 ⚡${sneakCost} 能量`, 2000);
       // 不 return，流程继续走（拾取食物等）
