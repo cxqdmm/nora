@@ -12,6 +12,19 @@ export class FrogNPC extends NPCModule {
     this._countdownText   = null;
     this._countdownInterval = null;
     this._map = null;
+    this._scene = null;
+  }
+
+  bindGraphics(gfx, scene) {
+    this._gfx = gfx;
+    this._scene = scene;
+    this._render();
+  }
+
+  _setGfxPosition(x, y) {
+    this._gfx.setPosition(x, y);
+    this._gfx.setScale(1, 1);
+    this._gfx.setAlpha(1);
   }
 
   _render() {
@@ -26,16 +39,40 @@ export class FrogNPC extends NPCModule {
     const mx = (nodeA.x + nodeB.x) / 2;
     const my = (nodeA.y + nodeB.y) / 2;
 
-    if (this._state === 'dead') return;
+    if (this._state === 'dead') {
+      return;
+    }
 
     if (this._state === 'idle') {
       this._drawFrog(mx, my, 0.6, 0x4caf50);
+      this._setGfxPosition(mx, my);
     } else if (this._state === 'active') {
       this._drawFrog(mx, my, 1.0, 0xf44336);
       this._gfx.lineStyle(2, 0xff0000, 0.5);
       this._gfx.strokeCircle(mx, my, 22);
+      this._setGfxPosition(mx, my);
+      if (this._scene) {
+        // 扑出缩放动画
+        this._scene.tweens.add({
+          targets: this._gfx,
+          scaleX: { from: 1.3, to: 1 },
+          scaleY: { from: 1.3, to: 1 },
+          duration: 200,
+          ease: 'Back.easeOut',
+        });
+        // 抖动动画
+        this._scene.tweens.add({
+          targets: this._gfx,
+          x: mx + 3,
+          duration: 60,
+          yoyo: true,
+          repeat: 3,
+          onComplete: () => { if (this._gfx) this._gfx.x = mx; },
+        });
+      }
     } else if (this._state === 'sleeping') {
       this._drawFrog(mx, my, 0.8, 0x2196f3);
+      this._setGfxPosition(mx, my);
     }
   }
 

@@ -22,6 +22,10 @@ export class UIModule {
     this._hintText  = null;
     this._hintTimer = null;
     this._container = null;
+    /** 道具 HUD */
+    this._itemGfx = null;
+    this._itemIcons = [];
+    this._itemContainer = null;
   }
 
   // ── 创建 HUD ─────────────────────────────────────────────
@@ -88,12 +92,85 @@ export class UIModule {
       }
     ).setOrigin(0.5).setScrollFactor(0).setDepth(depth + 5).setAlpha(0);
 
+    this._createItemHUD();
     this._updateBar();
   }
 
   // ── 每帧更新 ──────────────────────────────────────────────
   update() {
     this._updateBar();
+  }
+
+  // ── 道具 HUD（左侧常驻）────────────────────────────────
+  _createItemHUD() {
+    const X = 18;
+    const Y = 72;
+    const CELL = 42;
+    const GAP  = 6;
+
+    this._itemContainer = this.scene.add.container(X, Y).setDepth(90);
+    this._itemIcons = [];
+  }
+
+  /**
+   * 刷新道具 HUD（从外部调用，GameScene 在道具变化时调用）
+   * @param {import('./ItemModule').ItemModule} itemModule
+   */
+  refreshItemHUD(itemModule) {
+    if (!this._itemContainer) return;
+    this._itemContainer.removeAll(true);
+    this._itemIcons = [];
+
+    const CELL = 42;
+    const GAP  = 6;
+
+    const hasKnife  = itemModule.hasItem('knife');
+    const hasPotion = itemModule.hasItem('potion');
+
+    if (!hasKnife && !hasPotion) return;
+
+    // 半透明背景
+    const bg = this.scene.add.graphics().setDepth(89);
+    const rowCount = (hasKnife ? 1 : 0) + (hasPotion ? 1 : 0);
+    bg.fillStyle(0x000000, 0.4);
+    bg.fillRoundedRect(-4, -4, CELL + 8, CELL * rowCount + GAP + 8, 10);
+    this._itemContainer.add(bg);
+
+    let cy = 0;
+    if (hasKnife) {
+      const count = itemModule.getCount('knife');
+      this._addItemCell(0, cy, '🗡️', count, CELL);
+      cy += CELL + GAP;
+    }
+    if (hasPotion) {
+      const count = itemModule.getCount('potion');
+      this._addItemCell(0, cy, '💤', count, CELL);
+    }
+  }
+
+  _addItemCell(x, y, emoji, count, cellSize) {
+    const gfx = this.scene.add.graphics().setDepth(90);
+    gfx.fillStyle(0x2d1a00, 0.85);
+    gfx.fillRoundedRect(x, y, cellSize, cellSize, 8);
+    gfx.lineStyle(1.5, 0x6dcf5a, 0.6);
+    gfx.strokeRoundedRect(x, y, cellSize, cellSize, 8);
+
+    const icon = this.scene.add.text(x + cellSize / 2, y + cellSize / 2, emoji, {
+      fontSize: '22px',
+    }).setOrigin(0.5).setDepth(91);
+
+    this._itemContainer.add([gfx, icon]);
+    this._itemIcons.push({ type: emoji === '🗡️' ? 'knife' : 'potion', gfx, icon });
+
+    if (count > 1) {
+      const badge = this.scene.add.graphics().setDepth(92);
+      badge.fillStyle(0xff9800, 1);
+      badge.fillCircle(x + cellSize, y, 9);
+      const badgeText = this.scene.add.text(x + cellSize, y, String(count), {
+        fontSize: '10px', color: '#ffffff', fontFamily: 'Arial', fontStyle: 'bold',
+      }).setOrigin(0.5).setDepth(93);
+      this._itemContainer.add([badge, badgeText]);
+    }
   }
 
   _updateBar() {

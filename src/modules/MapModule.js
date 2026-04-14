@@ -76,7 +76,7 @@ export class MapModule {
     npc.bindMap(this);
     // 绑定渲染 Graphics（由 MapModule 创建）
     const gfx = this.scene.add.graphics().setDepth(50);
-    npc.bindGraphics(gfx);
+    npc.bindGraphics(gfx, this.scene);
     // 更新节点 → NPC 映射
     for (const nodeId of npc.getTriggerNodeIds()) {
       if (!this._nodeNpcs.has(nodeId)) {
