@@ -210,12 +210,15 @@ export class GameScene extends Phaser.Scene {
 
     // ── 如果离开了青蛙所在的边，重置该青蛙 ───────────────────
     // _prevNodeId 是离开前的节点；若它属于某青蛙的边，而当前节点不属于，则重置
+    console.log('[_onArrived] prevNodeId:', this._prevNodeId, '→ nodeId:', nodeId);
     if (this._prevNodeId !== null && this._prevNodeId !== nodeId) {
-      for (const npc of this._map._npcs.values()) {
+      for (const [npcId, npc] of this._map._npcs) {
         const edgeNodes = npc.getTriggerNodeIds();
         const wasOnEdge = edgeNodes.includes(this._prevNodeId);
         const isOnEdge  = edgeNodes.includes(nodeId);
+        console.log('  NPC', npcId, 'edgeNodes:', edgeNodes, 'wasOnEdge:', wasOnEdge, 'isOnEdge:', isOnEdge, 'state:', npc.getState());
         if (wasOnEdge && !isOnEdge) {
+          console.log('  → resetting NPC', npcId);
           npc.reset();
         }
       }
