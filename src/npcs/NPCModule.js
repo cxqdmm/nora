@@ -104,7 +104,7 @@ export class NPCModule {
     this._my = (nodeA.y + nodeB.y) / 2;
 
     this._gfx.clear();
-    this._gfx.setPosition(mx, my);
+    this._gfx.setPosition(this._mx, this._my);
     this._gfx.setScale(1, 1);
     this._gfx.setAlpha(1);
     this._killEffects();

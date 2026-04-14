@@ -10,7 +10,18 @@
       "Bash(git -C /Users/mac/Documents/cxq/caterpillar-game log --oneline -1)",
       "Bash(git -C /Users/mac/Documents/cxq/caterpillar-game branch)",
       "Bash(git -C /Users/mac/Documents/cxq/caterpillar-game add -A)",
-      "Bash(git -C /Users/mac/Documents/cxq/caterpillar-game commit -m ':*)"
+      "Bash(git -C /Users/mac/Documents/cxq/caterpillar-game commit -m ':*)",
+      "Bash(git -C /Users/mac/Documents/cxq/caterpillar-game worktree add .worktrees/frog-obstacle -b feature/frog-obstacle)",
+      "Bash(node --input-type=module --check)",
+      "Bash(node:*)",
+      "Bash(git -C /Users/mac/Documents/cxq/caterpillar-game/.worktrees/frog-obstacle add -A)",
+      "Bash(git -C /Users/mac/Documents/cxq/caterpillar-game/.worktrees/frog-obstacle status --short)",
+      "Bash(git:*)",
+      "Bash(lsof -ti:8765)",
+      "Bash(xargs kill:*)",
+      "Bash(lsof -ti:58600)",
+      "Bash(sed -i '' '107s/mx, my/this._mx, this._my/' /Users/mac/Documents/cxq/caterpillar-game/src/npcs/NPCModule.js)",
+      "Bash(sed -n '106,108p' /Users/mac/Documents/cxq/caterpillar-game/src/npcs/NPCModule.js)"
     ]
   }
 }
