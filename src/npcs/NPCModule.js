@@ -42,6 +42,16 @@ export class NPCModule {
     if (this._state === 'dead' || this._state === 'sleeping') return;
     this._state = 'active';
     this._render();
+    // 受惊后短暂显示攻击姿态（600ms），然后进入睡眠
+    this._clearSleepTimer();
+    this._sleepEndTime = Date.now() + 600;
+    this._sleepTimer = setTimeout(() => {
+      if (this._state === 'active') {
+        this._state = 'sleeping';
+        this._render();
+        this._sleepTimer = setTimeout(() => this._wakeUp(), this._sleepDuration);
+      }
+    }, 600);
   }
 
   sleep(durationMs) {
@@ -117,7 +127,6 @@ export class NPCModule {
 
     // 画装饰效果
     const effects = this.getStateEffects(this._state);
-    console.log(`[NPC ${this.id}] _render state=${this._state} effects=${JSON.stringify(effects)} mx=${this._mx} my=${this._my}`);
     for (const cfg of effects) {
       this._renderEffect(cfg);
     }
@@ -148,7 +157,6 @@ export class NPCModule {
     this._effectGfx.push(gfx);
 
     if (cfg.type === 'fire') {
-      console.log(`[NPC ${this.id}] drawFire at mx=${this._mx} my=${this._my}`);
       EffectModule.drawFire(gfx, 0, -20 * (cfg.scale ?? 1), cfg.scale ?? 1);
       // 火焰抖动 tween
       this._scene.tweens.add({
