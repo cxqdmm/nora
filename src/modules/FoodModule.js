@@ -13,6 +13,8 @@ export class FoodModule {
     this.mapModule = mapModule;
     /** nodeId → { type, gfx, energyValue } */
     this._foods = new Map();
+    /** nodeId → { gfx } 翅膀 */
+    this._wings = new Map();
   }
 
   // ── 创建 ─────────────────────────────────────────────────
@@ -28,6 +30,22 @@ export class FoodModule {
         gfx,
       });
     }
+    // 绘制翅膀
+    for (const wingDef of (levelData.wings ?? [])) {
+      const node = this.mapModule.getNode(wingDef.nodeId);
+      if (!node) continue;
+      const gfx = this._drawWing(node.x, node.y - 28);
+      this._wings.set(wingDef.nodeId, { gfx });
+    }
+  }
+
+  // ── 翅膀拾取 ───────────────────────────────────────────
+  checkWingPickup(nodeId) {
+    if (!this._wings.has(nodeId)) return false;
+    const wing = this._wings.get(nodeId);
+    this._playPickupAnim(wing.gfx);
+    this._wings.delete(nodeId);
+    return true;
   }
 
   // ── 检查拾取 ──────────────────────────────────────────────
@@ -149,6 +167,43 @@ export class FoodModule {
     this._addEnergyLabel(gfx, x, y - 30, '+50', '#ffdd44');
   }
 
+  _drawWing(x, y) {
+    const gfx = this.scene.add.graphics();
+    // 翅膀主体（浅蓝紫色蝴蝶翅膀形状）
+    gfx.fillStyle(0xb39ddb, 0.9);
+    // 左翅
+    gfx.fillEllipse(x - 10, y - 4, 18, 12);
+    // 右翅
+    gfx.fillEllipse(x + 10, y - 4, 18, 12);
+    // 上小翅
+    gfx.fillStyle(0xce93d8, 0.8);
+    gfx.fillEllipse(x - 12, y - 12, 10, 7);
+    gfx.fillEllipse(x + 12, y - 12, 10, 7);
+    // 中心身体
+    gfx.fillStyle(0x7986cb, 1);
+    gfx.fillRect(x - 2, y - 8, 4, 16);
+    // 翅膀高光
+    gfx.fillStyle(0xffffff, 0.35);
+    gfx.fillEllipse(x - 12, y - 6, 6, 4);
+    gfx.fillEllipse(x + 12, y - 6, 6, 4);
+
+    // 标签
+    const label = this.scene.add.text(x, y - 24, '🪁', {
+      fontSize: '16px',
+    }).setOrigin(0.5);
+    gfx._energyLabel = label;
+
+    this.scene.tweens.add({
+      targets: gfx,
+      y: '-=6',
+      duration: 1400 + Math.random() * 400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    return gfx;
+  }
+
   _addEnergyLabel(gfx, x, y, text, color) {
     const label = this.scene.add.text(x, y, text, {
       fontSize: '11px',
@@ -186,6 +241,11 @@ export class FoodModule {
       gfx._energyLabel?.destroy();
       gfx.destroy();
     }
+    for (const { gfx } of this._wings.values()) {
+      gfx._energyLabel?.destroy();
+      gfx.destroy();
+    }
     this._foods.clear();
+    this._wings.clear();
   }
 }

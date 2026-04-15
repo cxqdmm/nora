@@ -223,6 +223,16 @@ export class GameScene extends Phaser.Scene {
       this._showEnergyDelta(gained);
     }
 
+    // 翅膀拾取（直接放置的翅膀，不扣能量）
+    if (this._food.checkWingPickup(nodeId)) {
+      this._items.addItem('wing');
+      this._ui.showMessage('🪁 获得翅膀！', 2500);
+      this._ui.refreshItemHUD(this._items);
+      this._map.setFastTravelEnabled(true);
+      this._ui.showMessage('🪁 快速通道已激活！', 2500);
+      this._refreshHighlight();
+    }
+
     // 道具掉落检测
     const foodType = this._food.getLastFoodType?.(nodeId);
     if (foodType) {
@@ -237,7 +247,6 @@ export class GameScene extends Phaser.Scene {
         if (dropped === 'wing') {
           this._map.setFastTravelEnabled(true);
           this._ui.showMessage('🪁 快速通道已激活！', 2500);
-          // 高亮快速通道端点
           this._refreshHighlight();
         }
       }
