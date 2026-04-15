@@ -241,31 +241,78 @@ export class MapModule {
     if (!gfx) return;
 
     gfx.clear();
-    const alpha = this._fastTravelEnabled ? 0.8 : 0.5;
+    const isActive = this._fastTravelEnabled;
 
     for (const [a, b] of this._fastTravel) {
       const na = this._nodeMap.get(a);
       const nb = this._nodeMap.get(b);
       if (!na || !nb) continue;
-      gfx.lineStyle(3, 0xffd700, alpha);
-      gfx.beginPath();
-      gfx.moveTo(na.x, na.y);
-      gfx.lineTo(nb.x, nb.y);
-      gfx.strokePath();
+
+      if (isActive) {
+        // ── 彩虹发光虚线 ────────────────────────────
+        // 外层大光晕
+        this._drawRainbowLine(gfx, na.x, na.y, nb.x, nb.y, 12, 0.15);
+        this._drawRainbowLine(gfx, na.x, na.y, nb.x, nb.y, 8,  0.25);
+        // 实线彩虹
+        this._drawRainbowLine(gfx, na.x, na.y, nb.x, nb.y, 3, 0.9);
+      } else {
+        // ── 普通虚线 ─────────────────────────────────
+        this._drawDashLine(gfx, na.x, na.y, nb.x, nb.y, 0.45);
+      }
     }
 
-    if (this._fastTravelEnabled && this.scene) {
+    if (isActive) {
+      // 脉冲闪烁
+      this.scene.tweens.killTweensOf(gfx);
       this.scene.tweens.add({
         targets: gfx,
         alpha: { from: 0.6, to: 1 },
-        duration: 600,
+        duration: 500,
         yoyo: true,
         repeat: -1,
         ease: 'Sine.easeInOut',
       });
     } else {
       this.scene?.tweens.killTweensOf(gfx);
-      gfx.setAlpha(1);
+    }
+  }
+
+  // 彩虹渐变线（多条彩色线段叠加发光）
+  _drawRainbowLine(gfx, x1, y1, x2, y2, width, alpha) {
+    const colors = [0xff4444, 0xff8800, 0xffff00, 0x44ff44, 0x4488ff, 0xaa44ff];
+    for (const color of colors) {
+      gfx.lineStyle(width, color, alpha / colors.length);
+      gfx.beginPath();
+      gfx.moveTo(x1, y1);
+      gfx.lineTo(x2, y2);
+      gfx.strokePath();
+    }
+  }
+
+  // 普通虚线（黄灰色）
+  _drawDashLine(gfx, x1, y1, x2, y2, alpha) {
+    const segLen = 14;
+    const gapLen = 8;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const total = Math.hypot(dx, dy);
+    const ux = dx / total;
+    const uy = dy / total;
+    let dist = 0;
+    let dashOn = true;
+    while (dist < total) {
+      const seg = dashOn ? segLen : gapLen;
+      const cx = ux * dist;
+      const cy = uy * dist;
+      if (dashOn) {
+        gfx.lineStyle(2.5, 0xffd700, alpha);
+        gfx.beginPath();
+        gfx.moveTo(x1 + cx, y1 + cy);
+        gfx.lineTo(x1 + ux * Math.min(dist + seg, total), y1 + uy * Math.min(dist + seg, total));
+        gfx.strokePath();
+      }
+      dist += seg;
+      dashOn = !dashOn;
     }
   }
 
