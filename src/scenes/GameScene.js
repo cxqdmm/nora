@@ -160,6 +160,7 @@ export class GameScene extends Phaser.Scene {
       // 偷偷溜过：扣能量，青蛙恢复空闲（下次可再次阻挡）
       const sneakCost = npc.getSneakEnergyCost();
       this._energy.drain(sneakCost);
+      this._showEnergyDelta(-sneakCost);
       this._ui.showMessage(`🤫 偷偷溜过，消耗 ⚡${sneakCost} 能量`, 2000);
       npc.reset();
       // 不 return，流程继续走（拾取食物等）
@@ -168,6 +169,7 @@ export class GameScene extends Phaser.Scene {
     // 扣除移动能量
     if (this._pendingDrain > 0) {
       this._energy.drain(this._pendingDrain);
+      this._showEnergyDelta(-this._pendingDrain);
       this._pendingDrain = 0;
     }
     if (this._gameOver) return;  // drain 可能触发了 onEmpty
@@ -176,8 +178,7 @@ export class GameScene extends Phaser.Scene {
     const gained = this._food.checkPickup(nodeId);
     if (gained > 0) {
       this._energy.restore(gained);
-      const node = this._map.getNode(nodeId);
-      this._ui.showFoodPickup(node.x, node.y, `+${gained} ⚡`);
+      this._showEnergyDelta(gained);
     }
 
     // 道具掉落检测
@@ -223,6 +224,29 @@ export class GameScene extends Phaser.Scene {
         }
       }
     }
+  }
+
+  // ── 能量变化浮动文字 ──────────────────────────────────────
+  _showEnergyDelta(delta) {
+    const pos = this._cat.getHeadPosition();
+    const color = delta > 0 ? '#55ff55' : '#ff4444';
+    const sign  = delta > 0 ? '+' : '';
+    const text  = this.add.text(pos.x, pos.y - 20, `${sign}${delta}`, {
+      fontSize: '18px',
+      fontFamily: 'Microsoft YaHei, sans-serif',
+      color,
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(200);
+
+    this.tweens.add({
+      targets: text,
+      y: pos.y - 60,
+      alpha: 0,
+      duration: 900,
+      ease: 'Power2',
+      onComplete: () => text.destroy(),
+    });
   }
 
   // ── 高亮可点击的相邻节点 ──────────────────────────────────
