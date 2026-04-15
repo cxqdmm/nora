@@ -125,14 +125,17 @@ export class GameScene extends Phaser.Scene {
       if (this._cat.isMoving()) return;
 
       const curId = this._cat.getCurrentNodeId();
+      console.log('[click] nodeId:', nodeId, 'curId:', curId, 'hasWing:', this._items.hasItem('wing'));
 
       // ── 快速通航：只能手动点击另一端触发 ──────────────────
-      // 必须：① 有翅膀 ② 点击的是快速通道端点 ③ 目标端与当前位置不相邻（避免和普通移动冲突）
+      // 必须：① 有翅膀 ② 点击的是快速通道端点 ③ 目标端与当前位置不相邻
       if (this._items.hasItem('wing') && this._map.isFastTravelNode(nodeId)) {
         const targetId = this._map.getFastTravelTarget(nodeId);
         const targetConnected = this._map.isConnected(curId, nodeId);
+        console.log('[fastTravel] targetId:', targetId, 'targetConnected:', targetConnected);
         if (targetId !== null && !targetConnected) {
           // 有翅膀 + 点击另一端 → 飞行
+          console.log('[fastTravel] → DOING FAST TRAVEL to', targetId);
           this._items.removeItem('wing');
           this._map.setFastTravelEnabled(false);
           this._ui.refreshItemHUD(this._items);
@@ -144,8 +147,10 @@ export class GameScene extends Phaser.Scene {
 
       if (!this._map.isConnected(curId, nodeId)) {
         // 点击了不相邻节点，不响应
+        console.log('[click] not connected, ignored');
         return;
       }
+      console.log('[click] normal move to', nodeId);
 
       // 记录离开前的节点（用于判断是否离开了青蛙的边）
       this._prevNodeId = curId;
