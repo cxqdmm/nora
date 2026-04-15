@@ -229,6 +229,12 @@ export class CaterpillarModule {
   setVisible(visible) {
     for (const gfx of this._segments) gfx?.setAlpha(visible ? 1 : 0);
   }
+
+  /**
+   * 瞬间传送到目标节点（飞行结束用）
+   * @param {number} nodeId
+   */
+  teleportTo(nodeId) {
     const node = this.mapModule.getNode(nodeId);
     if (!node) return;
     this._currentNodeId = nodeId;
