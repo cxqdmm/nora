@@ -137,8 +137,7 @@ export class GameScene extends Phaser.Scene {
       this._map.clearHighlight();
 
       // 计算能量消耗
-      const dist    = this._map.getDistance(curId, nodeId);
-      const drain   = dist * CONFIG.ENERGY.DRAIN_PER_PX;
+      const drain = 1;  // 每移动一条边固定消耗 1 点能量
 
       // 开始移动
       this._cat.moveTo(nodeId);
