@@ -222,7 +222,13 @@ export class CaterpillarModule {
    * 瞬间传送到目标节点（快速通航）
    * @param {number} nodeId
    */
-  teleportTo(nodeId) {
+  /**
+   * 显示/隐藏毛毛虫（飞行时用）
+   * @param {boolean} visible
+   */
+  setVisible(visible) {
+    for (const gfx of this._segments) gfx?.setAlpha(visible ? 1 : 0);
+  }
     const node = this.mapModule.getNode(nodeId);
     if (!node) return;
     this._currentNodeId = nodeId;

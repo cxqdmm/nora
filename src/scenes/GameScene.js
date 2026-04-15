@@ -160,34 +160,89 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  // ── 快速通航飞行 ──────────────────────────────────────
+  // ── 快速通航飞行动画 ─────────────────────────────────────
+  // 飞行中隐藏毛毛虫，显示飞蛾，飞到目标后恢复毛毛虫
   _doFastTravel(targetNodeId) {
-    const fromPos = this._cat.getHeadPosition();
     const toNode = this._map.getNode(targetNodeId);
     if (!toNode) return;
 
-    // 飞行图形：从毛毛虫头飞向目标
-    const flyGfx = this.add.graphics().setDepth(200);
-    flyGfx.fillStyle(0xffd700, 0.8);
-    flyGfx.fillCircle(0, 0, 8);
-    flyGfx.setPosition(fromPos.x, fromPos.y);
+    const toX = toNode.x;
+    const toY = toNode.y;
 
-    flyGfx.setAlpha(0.8);
+    // ── 隐藏毛毛虫 ─────────────────────────────────────────
+    this._cat.setVisible(false);
+
+    // ── 画飞蛾 ────────────────────────────────────────────
+    const mothGfx = this.add.graphics().setDepth(200);
+    const mx = toX, my = toY;
+
+    // 飞行中毛毛虫显示为飞蛾的当前位置（起点）
+    const startPos = this._cat.getHeadPosition();
+    mothGfx.setPosition(startPos.x, startPos.y);
+    this._drawMoth(mothGfx, 0, 0);
+    mothGfx.setAlpha(0.9);
+
+    // 翅膀扑翅上下拍动
     this.tweens.add({
-      targets: flyGfx,
-      x: toNode.x,
-      y: toNode.y - 10,
-      alpha: 0,
-      duration: 400,
-      ease: 'Power1',
-      onComplete: () => {
-        flyGfx.destroy();
-      },
+      targets: mothGfx,
+      scaleY: { from: 1, to: 0.85 },
+      duration: 120,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
     });
 
-    // 毛毛虫瞬间移动到目标节点
+    // 飞向目标
+    this.tweens.add({
+      targets: mothGfx,
+      x: toX,
+      y: toY - 10,
+      duration: 600,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        mothGfx.destroy();
+        // 显示毛毛虫到目标
+        this._cat.teleportTo(targetNodeId);
+        this._cat.setVisible(true);
+        this._onArrived(targetNodeId, true);
+      },
+    });
+  }
+
+  // ── 画飞蛾（局部坐标 0,0 为中心）──────────────────────────────
+  _drawMoth(gfx, x, y) {
+    const s = 1;
+    // 左翅
+    gfx.fillStyle(0xb39ddb, 0.9);
+    gfx.fillEllipse(x - 14 * s, y, 24 * s, 16 * s);
+    // 右翅
+    gfx.fillEllipse(x + 14 * s, y, 24 * s, 16 * s);
+    // 上小翅
+    gfx.fillStyle(0xce93d8, 0.85);
+    gfx.fillEllipse(x - 16 * s, y - 12 * s, 14 * s, 10 * s);
+    gfx.fillEllipse(x + 16 * s, y - 12 * s, 14 * s, 10 * s);
+    // 身体
+    gfx.fillStyle(0x7986cb, 1);
+    gfx.fillEllipse(x, y, 6 * s, 20 * s);
+    // 触角
+    gfx.lineStyle(1.5, 0x5c6bc0, 1);
+    gfx.beginPath();
+    gfx.moveTo(x - 2 * s, y - 8 * s);
+    gfx.lineTo(x - 6 * s, y - 18 * s);
+    gfx.strokePath();
+    gfx.beginPath();
+    gfx.moveTo(x + 2 * s, y - 8 * s);
+    gfx.lineTo(x + 6 * s, y - 18 * s);
+    gfx.strokePath();
+    // 翅膀上的斑纹
+    gfx.fillStyle(0x9fa8da, 0.5);
+    gfx.fillCircle(x - 14 * s, y - 4 * s, 4 * s);
+    gfx.fillCircle(x + 14 * s, y - 4 * s, 4 * s);
+  }
+
+  // ── 瞬间传送（飞行结束后调用）───────────────────────────────
+  _teleportOnly(targetNodeId) {
     this._cat.teleportTo(targetNodeId);
-    // 触发到达回调（跳过 NPC 检测，快速通航不受阻挡，但食物/能量正常处理）
     this._onArrived(targetNodeId, true);
   }
 
