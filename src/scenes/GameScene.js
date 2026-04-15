@@ -124,19 +124,24 @@ export class GameScene extends Phaser.Scene {
       if (this._gameOver)      return;
       if (this._cat.isMoving()) return;
 
-      // ── 快速通航 ───────────────────────────────────────
+      const curId = this._cat.getCurrentNodeId();
+
+      // ── 快速通航：只能手动点击另一端触发 ──────────────────
+      // 必须：① 有翅膀 ② 点击的是快速通道端点 ③ 目标端与当前位置不相邻（避免和普通移动冲突）
       if (this._items.hasItem('wing') && this._map.isFastTravelNode(nodeId)) {
         const targetId = this._map.getFastTravelTarget(nodeId);
-        if (targetId !== null) {
+        const targetConnected = this._map.isConnected(curId, nodeId);
+        if (targetId !== null && !targetConnected) {
+          // 有翅膀 + 点击另一端 → 飞行
           this._items.removeItem('wing');
           this._map.setFastTravelEnabled(false);
           this._ui.refreshItemHUD(this._items);
           this._doFastTravel(targetId);
           return;
         }
+        // 有翅膀但点击的是相邻端点 → 走普通路径
       }
 
-      const curId = this._cat.getCurrentNodeId();
       if (!this._map.isConnected(curId, nodeId)) {
         // 点击了不相邻节点，不响应
         return;
