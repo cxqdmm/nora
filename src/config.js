@@ -69,9 +69,9 @@ export const CONFIG = {
   // ---------- 道具 ----------
   ITEMS: {
     DROP_CHANCE: {
-      leaf:  { knife: 0.20, potion: 0    },
-      berry: { knife: 0    , potion: 0.20 },
-      apple: { knife: 0.15 , potion: 0.15 },
+      leaf:  { knife: 0.20, potion: 0    , wing: 0    },
+      berry: { knife: 0    , potion: 0.20, wing: 0    },
+      apple: { knife: 0.15 , potion: 0.15, wing: 0.10 },
     },
   },
 

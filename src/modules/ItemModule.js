@@ -5,17 +5,17 @@ import { CONFIG } from '../config.js';
 
 export class ItemModule {
   constructor() {
-    /** @type {{ knife: number, potion: number }} */
-    this._items = { knife: 0, potion: 0 };
+    /** @type {{ knife: number, potion: number, wing: number }} */
+    this._items = { knife: 0, potion: 0, wing: 0 };
   }
 
   addItem(type) {
-    if (type !== 'knife' && type !== 'potion') return;
+    if (!['knife', 'potion', 'wing'].includes(type)) return;
     this._items[type]++;
   }
 
   removeItem(type) {
-    if (type !== 'knife' && type !== 'potion') return;
+    if (!['knife', 'potion', 'wing'].includes(type)) return;
     this._items[type] = Math.max(0, this._items[type] - 1);
   }
 

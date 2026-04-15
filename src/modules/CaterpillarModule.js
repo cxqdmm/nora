@@ -218,6 +218,22 @@ export class CaterpillarModule {
 
   isMoving()         { return this._moving; }
 
+  /**
+   * 瞬间传送到目标节点（快速通航）
+   * @param {number} nodeId
+   */
+  teleportTo(nodeId) {
+    const node = this.mapModule.getNode(nodeId);
+    if (!node) return;
+    this._currentNodeId = nodeId;
+    this._posHistory = [];
+    // 填充历史，让所有节都从目标位置出发
+    for (let i = 0; i <= C.BODY_SEGMENTS; i++) {
+      this._posHistory.push({ x: node.x, y: node.y });
+    }
+    this._redraw();
+  }
+
   // ── 销毁 ─────────────────────────────────────────────────
   destroy() {
     for (const gfx of this._segments) gfx?.destroy();

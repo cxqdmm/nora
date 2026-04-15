@@ -126,12 +126,13 @@ export class UIModule {
 
     const hasKnife  = itemModule.hasItem('knife');
     const hasPotion = itemModule.hasItem('potion');
+    const hasWing   = itemModule.hasItem('wing');
 
-    if (!hasKnife && !hasPotion) return;
+    if (!hasKnife && !hasPotion && !hasWing) return;
 
     // 半透明背景
     const bg = this.scene.add.graphics().setDepth(89);
-    const rowCount = (hasKnife ? 1 : 0) + (hasPotion ? 1 : 0);
+    const rowCount = (hasKnife ? 1 : 0) + (hasPotion ? 1 : 0) + (hasWing ? 1 : 0);
     bg.fillStyle(0x000000, 0.4);
     bg.fillRoundedRect(-4, -4, CELL + 8, CELL * rowCount + GAP + 8, 10);
     this._itemContainer.add(bg);
@@ -145,6 +146,11 @@ export class UIModule {
     if (hasPotion) {
       const count = itemModule.getCount('potion');
       this._addItemCell(0, cy, '💤', count, CELL);
+      cy += CELL + GAP;
+    }
+    if (hasWing) {
+      const count = itemModule.getCount('wing');
+      this._addItemCell(0, cy, '🪁', count, CELL);
     }
   }
 

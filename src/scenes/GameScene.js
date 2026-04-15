@@ -124,6 +124,18 @@ export class GameScene extends Phaser.Scene {
       if (this._gameOver)      return;
       if (this._cat.isMoving()) return;
 
+      // ── 快速通航 ───────────────────────────────────────
+      if (this._items.hasItem('wing') && this._map.isFastTravelNode(nodeId)) {
+        const targetId = this._map.getFastTravelTarget(nodeId);
+        if (targetId !== null) {
+          this._items.removeItem('wing');
+          this._map.setFastTravelEnabled(false);
+          this._ui.refreshItemHUD(this._items);
+          this._doFastTravel(targetId);
+          return;
+        }
+      }
+
       const curId = this._cat.getCurrentNodeId();
       if (!this._map.isConnected(curId, nodeId)) {
         // 点击了不相邻节点，不响应
@@ -136,8 +148,8 @@ export class GameScene extends Phaser.Scene {
       // 高亮取消
       this._map.clearHighlight();
 
-      // 计算能量消耗
-      const drain = 1;  // 每移动一条边固定消耗 1 点能量
+      // 固定消耗
+      const drain = 1;
 
       // 开始移动
       this._cat.moveTo(nodeId);
@@ -145,6 +157,37 @@ export class GameScene extends Phaser.Scene {
       // 移动过程中持续扣能量（tween 结束时一次性扣）
       this._pendingDrain = drain;
     });
+  }
+
+  // ── 快速通航飞行 ──────────────────────────────────────
+  _doFastTravel(targetNodeId) {
+    const fromPos = this._cat.getHeadPosition();
+    const toNode = this._map.getNode(targetNodeId);
+    if (!toNode) return;
+
+    // 飞行图形：从毛毛虫头飞向目标
+    const flyGfx = this.add.graphics().setDepth(200);
+    flyGfx.fillStyle(0xffd700, 0.8);
+    flyGfx.fillCircle(0, 0, 8);
+    flyGfx.setPosition(fromPos.x, fromPos.y);
+
+    flyGfx.setAlpha(0.8);
+    this.tweens.add({
+      targets: flyGfx,
+      x: toNode.x,
+      y: toNode.y - 10,
+      alpha: 0,
+      duration: 400,
+      ease: 'Power1',
+      onComplete: () => {
+        flyGfx.destroy();
+      },
+    });
+
+    // 毛毛虫瞬间移动到目标节点
+    this._cat.teleportTo(targetNodeId);
+    // 触发到达回调
+    this._onArrived(targetNodeId);
   }
 
   // ── 到达节点 ──────────────────────────────────────────────
@@ -186,10 +229,17 @@ export class GameScene extends Phaser.Scene {
       const dropped = this._items.rollDrop(foodType);
       if (dropped) {
         this._items.addItem(dropped);
-        const icon = dropped === 'knife' ? '🗡️' : '💤';
+        const icon = dropped === 'knife' ? '🗡️' : dropped === 'potion' ? '💤' : '🪁';
         this._ui.showMessage(`${icon} 获得道具！`, 2000);
         // 刷新道具 HUD
         this._ui.refreshItemHUD(this._items);
+        // 翅膀激活快速通道
+        if (dropped === 'wing') {
+          this._map.setFastTravelEnabled(true);
+          this._ui.showMessage('🪁 快速通道已激活！', 2500);
+          // 高亮快速通道端点
+          this._refreshHighlight();
+        }
       }
     }
 
@@ -252,6 +302,13 @@ export class GameScene extends Phaser.Scene {
   _refreshHighlight() {
     const curId    = this._cat.getCurrentNodeId();
     const adjacent = this._map.getConnected(curId);
+    // 有翅膀时，快速通道端点也高亮
+    if (this._items.hasItem('wing')) {
+      const ftNodes = this._map.getFastTravelNodes();
+      for (const nid of ftNodes) {
+        if (!adjacent.includes(nid)) adjacent.push(nid);
+      }
+    }
     this._map.highlightNodes(adjacent);
   }
 

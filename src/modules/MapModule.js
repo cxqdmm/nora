@@ -50,8 +50,24 @@ export class MapModule {
     this._npcs = new Map();
     /** 每个节点关联的 NPC id 列表 */
     this._nodeNpcs = new Map();
+    /** 快速通道数据 */
+    this._fastTravel = levelData.fastTravel ?? [];
+    /** 快速通道 Graphics */
+    this._fastTravelGfx = null;
+    /** 快速通道是否激活（玩家获得翅膀后） */
+    this._fastTravelEnabled = false;
+    /** 快速通道节点映射：nodeId → [partnerNodeId] */
+    this._fastTravelMap = new Map();
 
     this._buildGraph();
+    this._buildFastTravelMap();
+  }
+
+  _buildFastTravelMap() {
+    for (const [a, b] of this._fastTravel) {
+      this._fastTravelMap.set(a, b);
+      this._fastTravelMap.set(b, a);
+    }
   }
 
   // ── 初始化图 ─────────────────────────────────────────────
@@ -106,6 +122,36 @@ export class MapModule {
       .filter(npc => npc && npc.isBlocking());
   }
 
+  // ── 快速通道 API ──────────────────────────────────────────
+  /**
+   * 激活快速通道（获得翅膀后调用）
+   */
+  setFastTravelEnabled(enabled) {
+    this._fastTravelEnabled = enabled;
+    this._updateFastTravelVisuals();
+  }
+
+  /**
+   * 是否为快速通道端点
+   */
+  isFastTravelNode(nodeId) {
+    return this._fastTravelMap.has(nodeId);
+  }
+
+  /**
+   * 获取快速通道另一端节点 id
+   */
+  getFastTravelTarget(nodeId) {
+    return this._fastTravelMap.get(nodeId) ?? null;
+  }
+
+  /**
+   * 获取所有快速通道端点（激活状态时用于高亮）
+   */
+  getFastTravelNodes() {
+    return [...this._fastTravelMap.keys()];
+  }
+
   // ── 公开 API：数据查询 ────────────────────────────────────
   getNode(id)           { return this._nodeMap.get(id); }
   getAllNodes()          { return [...this._nodeMap.values()]; }
@@ -123,6 +169,7 @@ export class MapModule {
   create() {
     this._drawBackground();
     this._drawBranches();
+    this._drawFastTravel();
     this._drawNodes();
   }
 
@@ -165,6 +212,60 @@ export class MapModule {
 
     for (const [a, b] of this.levelData.edges) {
       this._drawSingleBranch(gfx, a, b);
+    }
+  }
+
+  // ── 快速通道虚线 ─────────────────────────────────────────
+  _drawFastTravel() {
+    if (!this._fastTravel.length) return;
+    const gfx = this.scene.add.graphics().setDepth(49);
+    this._fastTravelGfx = gfx;
+
+    for (const [a, b] of this._fastTravel) {
+      const na = this._nodeMap.get(a);
+      const nb = this._nodeMap.get(b);
+      if (!na || !nb) continue;
+      // 画虚线（初始半透明）
+      gfx.lineStyle(3, 0xffd700, 0.15);
+      gfx.beginPath();
+      gfx.moveTo(na.x, na.y);
+      gfx.lineTo(nb.x, nb.y);
+      gfx.strokePath();
+    }
+
+    this._updateFastTravelVisuals();
+  }
+
+  _updateFastTravelVisuals() {
+    const gfx = this._fastTravelGfx;
+    if (!gfx) return;
+
+    gfx.clear();
+    const alpha = this._fastTravelEnabled ? 0.8 : 0.15;
+
+    for (const [a, b] of this._fastTravel) {
+      const na = this._nodeMap.get(a);
+      const nb = this._nodeMap.get(b);
+      if (!na || !nb) continue;
+      gfx.lineStyle(3, 0xffd700, alpha);
+      gfx.beginPath();
+      gfx.moveTo(na.x, na.y);
+      gfx.lineTo(nb.x, nb.y);
+      gfx.strokePath();
+    }
+
+    if (this._fastTravelEnabled && this.scene) {
+      this.scene.tweens.add({
+        targets: gfx,
+        alpha: { from: 0.6, to: 1 },
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else {
+      this.scene?.tweens.killTweensOf(gfx);
+      gfx.setAlpha(1);
     }
   }
 
@@ -381,6 +482,7 @@ export class MapModule {
 
   destroy() {
     this._branchGfx?.destroy();
+    this._fastTravelGfx?.destroy();
     for (const { gfx, zone } of this._nodeSprites.values()) {
       gfx.destroy();
       zone.destroy();
