@@ -191,10 +191,8 @@ export class GameScene extends Phaser.Scene {
 
     // 毛毛虫瞬间移动到目标节点
     this._cat.teleportTo(targetNodeId);
-    // 动画结束后再触发到达回调（跳过 NPC 检测，快速通航直接到达）
-    this.time.delayedCall(400, () => {
-      this._onArrived(targetNodeId, true);
-    });
+    // 触发到达回调（跳过 NPC 检测，快速通航不受阻挡，但食物/能量正常处理）
+    this._onArrived(targetNodeId, true);
   }
 
   // ── 到达节点 ──────────────────────────────────────────────
@@ -320,10 +318,9 @@ export class GameScene extends Phaser.Scene {
   _refreshHighlight() {
     const curId    = this._cat.getCurrentNodeId();
     const adjacent = this._map.getConnected(curId);
-    // 有翅膀时，快速通道端点也高亮
+    // 有翅膀时，仅高亮不相邻的快速通道端点
     if (this._items.hasItem('wing')) {
-      const ftNodes = this._map.getFastTravelNodes();
-      for (const nid of ftNodes) {
+      for (const nid of this._map.getFastTravelNodes()) {
         if (!adjacent.includes(nid)) adjacent.push(nid);
       }
     }
