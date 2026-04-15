@@ -191,16 +191,19 @@ export class GameScene extends Phaser.Scene {
 
     // 毛毛虫瞬间移动到目标节点
     this._cat.teleportTo(targetNodeId);
-    // 触发到达回调
-    this._onArrived(targetNodeId);
+    // 动画结束后再触发到达回调（跳过 NPC 检测，快速通航直接到达）
+    this.time.delayedCall(400, () => {
+      this._onArrived(targetNodeId, true);
+    });
   }
 
   // ── 到达节点 ──────────────────────────────────────────────
-  _onArrived(nodeId) {
+  _onArrived(nodeId, skipNpc = false) {
     if (this._gameOver) return;
 
-    // ── NPC 触发检测 ───────────────────────────────────────
-    const blockingNpcs = this._map.getBlockingNpcsAtNode(nodeId);
+    // ── NPC 触发检测（快速通航跳过）──────────────────────
+    if (!skipNpc) {
+      const blockingNpcs = this._map.getBlockingNpcsAtNode(nodeId);
     if (blockingNpcs.length > 0) {
       const npc = blockingNpcs[0];
       npc.activate();
@@ -211,6 +214,7 @@ export class GameScene extends Phaser.Scene {
       this._ui.showMessage(`🤫 偷偷溜过，消耗 ⚡${sneakCost} 能量`, 2000);
       npc.reset();
       // 不 return，流程继续走（拾取食物等）
+    }
     }
 
     // 扣除移动能量
