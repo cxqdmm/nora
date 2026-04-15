@@ -41,6 +41,7 @@ export class NPCModule {
   activate() {
     if (this._state === 'dead' || this._state === 'sleeping') return;
     this._state = 'active';
+    console.log(`[NPC ${this.id}] activate() → state=${this._state}`);
     this._render();
     // 受惊后短暂显示攻击姿态（600ms），然后进入睡眠
     this._clearSleepTimer();
@@ -71,6 +72,7 @@ export class NPCModule {
   }
 
   reset() {
+    console.log(`[NPC ${this.id}] reset() called, current state=${this._state}`);
     this._clearSleepTimer();
     this._state = 'idle';
     this._render();
@@ -127,6 +129,7 @@ export class NPCModule {
 
     // 画装饰效果
     const effects = this.getStateEffects(this._state);
+    console.log(`[NPC ${this.id}] _render effects.length=${effects.length} _effectGfx.length(before)=${this._effectGfx.length}`);
     for (const cfg of effects) {
       this._renderEffect(cfg);
     }
@@ -157,6 +160,7 @@ export class NPCModule {
     this._effectGfx.push(gfx);
 
     if (cfg.type === 'fire') {
+      console.log(`[NPC ${this.id}] → drawing FIRE effect gfx=${gfx.x},${gfx.y} depth=${gfx.depth}`);
       EffectModule.drawFire(gfx, 0, -20 * (cfg.scale ?? 1), cfg.scale ?? 1);
       // 火焰抖动 tween
       this._scene.tweens.add({
@@ -195,6 +199,7 @@ export class NPCModule {
   }
 
   _killEffects() {
+    console.log(`[NPC ${this.id}] _killEffects killing ${this._effectGfx.length} effects`);
     for (const g of this._effectGfx) {
       this._scene?.tweens.killTweensOf(g);
       g.destroy();
