@@ -117,6 +117,7 @@ export class NPCModule {
 
     // 画装饰效果
     const effects = this.getStateEffects(this._state);
+    console.log(`[NPC ${this.id}] _render state=${this._state} effects=${JSON.stringify(effects)} mx=${this._mx} my=${this._my}`);
     for (const cfg of effects) {
       this._renderEffect(cfg);
     }
@@ -147,6 +148,7 @@ export class NPCModule {
     this._effectGfx.push(gfx);
 
     if (cfg.type === 'fire') {
+      console.log(`[NPC ${this.id}] drawFire at mx=${this._mx} my=${this._my}`);
       EffectModule.drawFire(gfx, 0, -20 * (cfg.scale ?? 1), cfg.scale ?? 1);
       // 火焰抖动 tween
       this._scene.tweens.add({
