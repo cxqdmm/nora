@@ -318,14 +318,11 @@ export class GameScene extends Phaser.Scene {
   _refreshHighlight() {
     const curId    = this._cat.getCurrentNodeId();
     const adjacent = this._map.getConnected(curId);
-    // 有翅膀时，快速通道只高亮不相邻的那一端
+    // 有翅膀时，快速通航的另一端也高亮（无论是否相邻）
     if (this._items.hasItem('wing')) {
-      const ftNodes = this._map.getFastTravelNodes();
-      for (const nid of ftNodes) {
-        if (!adjacent.includes(nid)) {
-          adjacent.push(nid);
-          break;  // 只加一个不相邻的端点
-        }
+      const targetId = this._map.getFastTravelTarget(curId);
+      if (targetId !== null && !adjacent.includes(targetId)) {
+        adjacent.push(targetId);
       }
     }
     this._map.highlightNodes(adjacent);
