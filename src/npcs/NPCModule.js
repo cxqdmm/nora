@@ -96,7 +96,6 @@ export class NPCModule {
 
   // ── 渲染主流程 ────────────────────────────────────────
   _render() {
-    console.log('[NPC] _render state:', this._state, 'gfx:', !!this._gfx, 'scene:', !!this._scene);
     if (!this._gfx) return;
     const nodeA = this._map?.getNode(this.edgeA);
     const nodeB = this._map?.getNode(this.edgeB);
@@ -142,7 +141,6 @@ export class NPCModule {
 
   // ── 效果渲染 ─────────────────────────────────────────
   _renderEffect(cfg) {
-    console.log('[NPC] _renderEffect called:', cfg.type, 'mx:', this._mx, 'my:', this._my);
     if (!this._scene) return;
     const gfx = this._scene.add.graphics().setDepth(51);
     gfx.setPosition(this._mx, this._my);

@@ -125,32 +125,23 @@ export class GameScene extends Phaser.Scene {
       if (this._cat.isMoving()) return;
 
       const curId = this._cat.getCurrentNodeId();
-      console.log('[click] nodeId:', nodeId, 'curId:', curId, 'hasWing:', this._items.hasItem('wing'));
-
-      // ── 快速通航：只能手动点击另一端触发 ──────────────────
-      // 必须：① 有翅膀 ② 点击的是快速通道端点 ③ 目标端与当前位置不相邻
-      if (this._items.hasItem('wing') && this._map.isFastTravelNode(nodeId)) {
-        const targetId = this._map.getFastTravelTarget(nodeId);
-        const targetConnected = this._map.isConnected(curId, nodeId);
-        console.log('[fastTravel] targetId:', targetId, 'targetConnected:', targetConnected);
-        if (targetId !== null && !targetConnected) {
-          // 有翅膀 + 点击另一端 → 飞行
-          console.log('[fastTravel] → DOING FAST TRAVEL to', targetId);
+      // ── 快速通航：点击当前位置的快速通航目标端才能飞 ──────
+      if (this._items.hasItem('wing')) {
+        const ftTarget = this._map.getFastTravelTarget(curId);
+        if (nodeId === ftTarget) {
+          // 点击了当前位置的快速通航另一端 → 飞行
           this._items.removeItem('wing');
           this._map.setFastTravelEnabled(false);
           this._ui.refreshItemHUD(this._items);
-          this._doFastTravel(targetId);
+          this._doFastTravel(ftTarget);
           return;
         }
-        // 有翅膀但点击的是相邻端点 → 走普通路径
       }
 
       if (!this._map.isConnected(curId, nodeId)) {
         // 点击了不相邻节点，不响应
-        console.log('[click] not connected, ignored');
         return;
       }
-      console.log('[click] normal move to', nodeId);
 
       // 记录离开前的节点（用于判断是否离开了青蛙的边）
       this._prevNodeId = curId;
@@ -281,16 +272,13 @@ export class GameScene extends Phaser.Scene {
 
     // ── 如果离开了青蛙所在的边，重置该青蛙 ───────────────────
     // _prevNodeId 是离开前的节点；若它属于某青蛙的边，而当前节点不属于，则重置
-    console.log('[_onArrived] prevNodeId:', this._prevNodeId, '→ nodeId:', nodeId);
     if (this._prevNodeId !== null && this._prevNodeId !== nodeId) {
       for (const [npcId, npc] of this._map._npcs) {
         const edgeNodes = npc.getTriggerNodeIds();
         const wasOnEdge = edgeNodes.includes(this._prevNodeId);
         const isOnEdge  = edgeNodes.includes(nodeId);
-        console.log('  NPC', npcId, 'edgeNodes:', edgeNodes, 'wasOnEdge:', wasOnEdge, 'isOnEdge:', isOnEdge, 'state:', npc.getState());
-        if (wasOnEdge && !isOnEdge) {
-          console.log('  → resetting NPC', npcId);
-          npc.reset();
+            if (wasOnEdge && !isOnEdge) {
+                npc.reset();
         }
       }
     }
@@ -325,8 +313,8 @@ export class GameScene extends Phaser.Scene {
     const adjacent = this._map.getConnected(curId);
     // 有翅膀时，快速通航的另一端也高亮（无论是否相邻）
     if (this._items.hasItem('wing')) {
-      const targetId = this._map.getFastTravelTarget(curId);
-      if (targetId !== null && !adjacent.includes(targetId)) {
+      const targetId = this._map.getFastTravelTarget(curId);  // curId 的快速通航目标
+      if (targetId !== null) {
         adjacent.push(targetId);
       }
     }

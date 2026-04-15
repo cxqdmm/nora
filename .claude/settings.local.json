@@ -21,7 +21,8 @@
       "Bash(xargs kill:*)",
       "Bash(lsof -ti:58600)",
       "Bash(sed -i '' '107s/mx, my/this._mx, this._my/' /Users/mac/Documents/cxq/caterpillar-game/src/npcs/NPCModule.js)",
-      "Bash(sed -n '106,108p' /Users/mac/Documents/cxq/caterpillar-game/src/npcs/NPCModule.js)"
+      "Bash(sed -n '106,108p' /Users/mac/Documents/cxq/caterpillar-game/src/npcs/NPCModule.js)",
+      "Bash(python3:*)"
     ]
   }
 }

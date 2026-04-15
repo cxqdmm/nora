@@ -117,7 +117,6 @@ export class FrogNPC extends NPCModule {
 
   // ── 徽章渲染（跟随 NPC 位置）──────────────────────────────
   _renderCostBadge() {
-    console.log('[_renderCostBadge] state:', this._state, 'mx:', this._mx, 'my:', this._my, 'costBg:', !!this._costBg, 'costText:', !!this._costText);
     if (!this._costBg || !this._costText) return;
     const cost    = this.getSneakEnergyCost();
     const badgeX  = this._mx + 20;
@@ -130,13 +129,11 @@ export class FrogNPC extends NPCModule {
 
     this._costText.setPosition(badgeX, badgeY);
     this._costText.setText(`⚡${cost}`);
-    console.log('[_renderCostBadge] drawn at', badgeX, badgeY, 'text:', this._costText.text);
   }
 
   // ── 覆盖基类 bindGraphics：创建徽章对象 ─────────────────
   bindGraphics(gfx, scene) {
     super.bindGraphics(gfx, scene);
-    console.log('[bindGraphics] creating badge, scene:', !!this._scene);
     // 能量消耗徽章（背景圆 + 文字）
     this._costBg = this._scene.add.graphics().setDepth(155);
     this._costText = this._scene.add.text(0, 0, '', {
@@ -146,7 +143,6 @@ export class FrogNPC extends NPCModule {
       stroke: '#000000',
       strokeThickness: 2,
     }).setOrigin(0.5).setDepth(156);
-    console.log('[bindGraphics] badge created, cost:', this.getSneakEnergyCost(), 'mx:', this._mx, 'my:', this._my);
   }
 
   // ── 覆盖基类 _render：渲染完成后更新徽章 ─────────────────
