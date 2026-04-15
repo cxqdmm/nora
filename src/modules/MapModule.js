@@ -225,8 +225,8 @@ export class MapModule {
       const na = this._nodeMap.get(a);
       const nb = this._nodeMap.get(b);
       if (!na || !nb) continue;
-      // 画虚线（初始半透明）
-      gfx.lineStyle(3, 0xffd700, 0.15);
+      // 画虚线（初始中等透明度，获得翅膀后更亮）
+      gfx.lineStyle(3, 0xffd700, 0.5);
       gfx.beginPath();
       gfx.moveTo(na.x, na.y);
       gfx.lineTo(nb.x, nb.y);
@@ -241,7 +241,7 @@ export class MapModule {
     if (!gfx) return;
 
     gfx.clear();
-    const alpha = this._fastTravelEnabled ? 0.8 : 0.15;
+    const alpha = this._fastTravelEnabled ? 0.8 : 0.5;
 
     for (const [a, b] of this._fastTravel) {
       const na = this._nodeMap.get(a);
