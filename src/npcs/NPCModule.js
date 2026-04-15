@@ -41,7 +41,6 @@ export class NPCModule {
   activate() {
     if (this._state === 'dead' || this._state === 'sleeping') return;
     this._state = 'active';
-    console.log(`[NPC ${this.id}] activate() → state=${this._state}`);
     this._render();
     // 受惊后短暂显示攻击姿态（600ms），然后进入睡眠
     this._clearSleepTimer();
@@ -72,10 +71,10 @@ export class NPCModule {
   }
 
   reset() {
-    console.log(`[NPC ${this.id}] reset() called, current state=${this._state}`);
     this._clearSleepTimer();
     this._state = 'idle';
-    this._render();
+    // 不 kill 效果，让 active 火焰继续显示直到 600ms 定时器
+    this._render(false);
   }
 
   // ── 睡眠内部 ─────────────────────────────────────────
@@ -107,7 +106,7 @@ export class NPCModule {
   }
 
   // ── 渲染主流程 ────────────────────────────────────────
-  _render() {
+  _render(killEffects = true) {
     if (!this._gfx) return;
     const nodeA = this._map?.getNode(this.edgeA);
     const nodeB = this._map?.getNode(this.edgeB);
@@ -120,7 +119,7 @@ export class NPCModule {
     this._gfx.setPosition(this._mx, this._my);
     this._gfx.setScale(1, 1);
     this._gfx.setAlpha(1);
-    this._killEffects();
+    if (killEffects) this._killEffects();
 
     if (this._state === 'dead') return;
 
@@ -129,7 +128,6 @@ export class NPCModule {
 
     // 画装饰效果
     const effects = this.getStateEffects(this._state);
-    console.log(`[NPC ${this.id}] _render effects.length=${effects.length} _effectGfx.length(before)=${this._effectGfx.length}`);
     for (const cfg of effects) {
       this._renderEffect(cfg);
     }
@@ -160,7 +158,6 @@ export class NPCModule {
     this._effectGfx.push(gfx);
 
     if (cfg.type === 'fire') {
-      console.log(`[NPC ${this.id}] → drawing FIRE effect gfx=${gfx.x},${gfx.y} depth=${gfx.depth}`);
       EffectModule.drawFire(gfx, 0, -20 * (cfg.scale ?? 1), cfg.scale ?? 1);
       // 火焰抖动 tween
       this._scene.tweens.add({
@@ -199,7 +196,6 @@ export class NPCModule {
   }
 
   _killEffects() {
-    console.log(`[NPC ${this.id}] _killEffects killing ${this._effectGfx.length} effects`);
     for (const g of this._effectGfx) {
       this._scene?.tweens.killTweensOf(g);
       g.destroy();
