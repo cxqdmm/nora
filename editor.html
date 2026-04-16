@@ -8,72 +8,22 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { display: flex; flex-direction: column; height: 100vh; background: #1a1a2e; font-family: 'Microsoft YaHei', sans-serif; color: #e0e0e0; overflow: hidden; }
 
-    /* ── 顶部工具栏 ── */
-    #toolbar {
-      display: flex; align-items: center; gap: 6px;
-      background: #16213e; padding: 8px 16px; border-bottom: 1px solid #0f3460; flex-shrink: 0;
-    }
+    #toolbar { display: flex; align-items: center; gap: 4px; background: #16213e; padding: 8px 16px; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
     #toolbar h1 { font-size: 15px; color: #e94560; margin-right: 16px; white-space: nowrap; }
     .tool-sep { width: 1px; height: 28px; background: #0f3460; margin: 0 6px; }
+    .tool-btn { display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 6px; border: 1px solid #0f3460; background: #1a1a2e; color: #e0e0e0; cursor: pointer; font-size: 13px; transition: all 0.15s; user-select: none; }
+    .tool-btn:hover { background: #0f3460; color: #fff; }
+    .tool-btn.active { background: #e94560; border-color: #e94560; color: #fff; font-weight: bold; }
+    .tool-btn .icon { font-size: 16px; }
 
-    /* 可拖拽的工具项 */
-    .tool-item {
-      display: flex; align-items: center; gap: 5px;
-      padding: 5px 10px; border-radius: 6px;
-      border: 1px solid #0f3460;
-      background: #1a1a2e; color: #e0e0e0;
-      cursor: grab; font-size: 13px; user-select: none;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .tool-item:hover { background: #0f3460; border-color: #e94560; color: #fff; }
-    .tool-item:active { cursor: grabbing; }
-    .tool-item.dragging { opacity: 0.5; }
-    .tool-item .icon { font-size: 16px; }
-    .tool-item .label { font-size: 12px; }
-
-    /* 拖拽预览幽灵 */
-    #drag-ghost {
-      position: fixed; pointer-events: none; z-index: 9999;
-      background: #e94560; color: #fff; padding: 6px 12px; border-radius: 8px;
-      font-size: 13px; white-space: nowrap; opacity: 0.9;
-      display: none; transform: translate(-50%, -50%);
-    }
-
-    /* ── 主内容区 ── */
     #main { display: flex; flex: 1; overflow: hidden; }
-
-    /* 画布区域 */
-    #canvas-wrap {
-      flex: 0 0 800px; position: relative; overflow: hidden;
-      border-right: 1px solid #0f3460;
-    }
-    #canvas-wrap.tool-drag-over { outline: 2px dashed #e94560; outline-offset: -4px; }
-    #coord-bar {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      background: rgba(22,33,62,0.85); padding: 4px 12px;
-      font-size: 12px; color: #aaa; pointer-events: none; z-index: 10;
-    }
-    #hint-bar {
-      position: absolute; top: 0; left: 0; right: 0;
-      background: rgba(22,33,62,0.85); padding: 4px 12px;
-      font-size: 12px; color: #aaa; pointer-events: none; z-index: 10;
-      text-align: center;
-    }
-
-    /* 垃圾桶 */
-    #trash-zone {
-      position: absolute; bottom: 36px; right: 8px;
-      width: 60px; height: 60px; border-radius: 12px;
-      background: rgba(233,69,96,0.15); border: 2px dashed #e94560;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-size: 24px; color: #e94560; opacity: 0.4;
-      transition: opacity 0.2s, background 0.2s;
-      z-index: 20;
-    }
+    #canvas-wrap { flex: 0 0 800px; position: relative; overflow: hidden; border-right: 1px solid #0f3460; }
+    #coord-bar { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(22,33,62,0.85); padding: 4px 12px; font-size: 12px; color: #aaa; pointer-events: none; z-index: 10; }
+    #hint-bar { position: absolute; top: 0; left: 0; right: 0; background: rgba(22,33,62,0.85); padding: 4px 12px; font-size: 12px; color: #e94560; pointer-events: none; z-index: 10; text-align: center; }
+    #trash-zone { position: absolute; bottom: 36px; right: 8px; width: 60px; height: 60px; border-radius: 12px; background: rgba(233,69,96,0.1); border: 2px dashed #e94560; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 24px; color: #e94560; opacity: 0.4; transition: all 0.2s; z-index: 20; }
     #trash-zone span { font-size: 10px; margin-top: 2px; }
-    #trash-zone.active { opacity: 1; background: rgba(233,69,96,0.3); border-style: solid; }
+    #trash-zone.active { opacity: 1; background: rgba(233,69,96,0.35); border-style: solid; transform: scale(1.1); }
 
-    /* ── 右侧面板 ── */
     #panel { flex: 1; background: #16213e; display: flex; flex-direction: column; overflow: hidden; }
     .tabs { display: flex; border-bottom: 1px solid #0f3460; flex-shrink: 0; }
     .tab { padding: 8px 12px; cursor: pointer; font-size: 13px; color: #888; border-bottom: 2px solid transparent; margin-bottom: -1px; }
@@ -83,27 +33,18 @@
     .section-title { font-size: 11px; color: #e94560; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 1px; }
     .prop-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
     .prop-label { color: #aaa; min-width: 56px; }
-    input[type="text"], input[type="number"], select {
-      background: #1a1a2e; border: 1px solid #0f3460; border-radius: 4px;
-      color: #e0e0e0; padding: 4px 8px; font-size: 13px; width: 100%;
-    }
+    input[type="text"], input[type="number"], select { background: #1a1a2e; border: 1px solid #0f3460; border-radius: 4px; color: #e0e0e0; padding: 4px 8px; font-size: 13px; width: 100%; }
     input[type="checkbox"] { width: 16px; height: 16px; accent-color: #e94560; }
     .node-list, .edge-list, .item-list { display: flex; flex-direction: column; gap: 4px; }
-    .list-item {
-      display: flex; align-items: center; gap: 6px; padding: 6px 8px;
-      background: #1a1a2e; border-radius: 4px; cursor: pointer; font-size: 13px;
-    }
+    .list-item { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #1a1a2e; border-radius: 4px; cursor: pointer; font-size: 13px; }
     .list-item.selected { background: #0f3460; border: 1px solid #e94560; }
     .list-item .del { margin-left: auto; color: #888; cursor: pointer; font-size: 14px; }
     .list-item .del:hover { color: #e94560; }
     .npc-card { background: #1a1a2e; border-radius: 6px; padding: 10px; margin-bottom: 8px; font-size: 13px; }
-    .npc-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
+    .npc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 
-    /* Toast */
     #toast { position: fixed; bottom: 20px; right: 20px; background: #e94560; color: #fff; padding: 10px 18px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999; }
     #toast.show { opacity: 1; }
-
-    /* 导入模态框 */
     #import-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); align-items: center; justify-content: center; z-index: 1000; }
     #import-modal.show { display: flex; }
     .modal-box { background: #16213e; border-radius: 10px; padding: 20px; width: 500px; }
@@ -114,91 +55,38 @@
     .btn:hover { background: #0f3460; }
     .btn.primary { background: #0f3460; color: #e94560; font-weight: bold; }
 
-    /* 节点/边/道具操作模式提示 */
-    #op-hint {
-      position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
-      background: rgba(233,69,96,0.9); color: #fff; padding: 6px 16px; border-radius: 20px;
-      font-size: 13px; pointer-events: none; z-index: 30; display: none;
-    }
-    #op-hint.show { display: block; }
-
-    /* 选择类型弹出框 */
-    #type-popup {
-      position: fixed; background: #16213e; border: 1px solid #0f3460; border-radius: 10px;
-      padding: 10px; z-index: 200; display: none; min-width: 140px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    }
-    #type-popup.show { display: block; }
-    .type-opt { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #e0e0e0; }
+    #type-popup { position: fixed; background: #16213e; border: 1px solid #0f3460; border-radius: 10px; padding: 8px; z-index: 200; display: none; min-width: 130px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+    .type-opt { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; color: #e0e0e0; }
     .type-opt:hover { background: #0f3460; color: #fff; }
     .type-opt.selected { background: #e94560; color: #fff; }
   </style>
 </head>
 <body>
 
-<!-- ── 顶部工具栏 ── -->
 <div id="toolbar">
-  <h1>🎮 关卡编辑器</h1>
-
-  <!-- 节点 -->
-  <div class="tool-item" draggable="true" data-tool="node">
-    <span class="icon">⚫</span><span class="label">节点</span>
-  </div>
-
+  <h1>关卡编辑器</h1>
+  <!-- 工具按钮：点击激活工具 -->
+  <button class="tool-btn active" id="btn-node">⚫ 节点</button>
   <div class="tool-sep"></div>
-
-  <!-- 边 -->
-  <div class="tool-item" draggable="true" data-tool="edge">
-    <span class="icon">━━</span><span class="label">边</span>
-  </div>
-
+  <button class="tool-btn" id="btn-edge">━━ 边</button>
+  <button class="tool-btn" id="btn-fasttravel">⚡ 快速通道</button>
+  <button class="tool-btn" id="btn-npc">🐸 NPC</button>
   <div class="tool-sep"></div>
-
-  <!-- 食物 -->
-  <div class="tool-item" draggable="true" data-tool="food">
-    <span class="icon">🍎</span><span class="label">食物</span>
-  </div>
-
-  <!-- 翅膀 -->
-  <div class="tool-item" draggable="true" data-tool="wing">
-    <span class="icon">🪁</span><span class="label">翅膀</span>
-  </div>
-
+  <button class="tool-btn" id="btn-food">🍎 食物</button>
+  <button class="tool-btn" id="btn-wing">🪁 翅膀</button>
   <div class="tool-sep"></div>
-
-  <!-- 快速通道 -->
-  <div class="tool-item" draggable="true" data-tool="fasttravel">
-    <span class="icon">⚡</span><span class="label">快速通道</span>
-  </div>
-
-  <!-- NPC -->
-  <div class="tool-item" draggable="true" data-tool="npc">
-    <span class="icon">🐸</span><span class="label">NPC</span>
-  </div>
-
-  <div class="tool-sep"></div>
-
-  <!-- 导出/导入 -->
-  <button class="btn primary" id="btn-export">📤 导出 JSON</button>
+  <button class="btn primary" id="btn-export">📤 导出</button>
   <button class="btn" id="btn-import">📥 导入</button>
 </div>
 
-<!-- 拖拽幽灵 -->
-<div id="drag-ghost"></div>
-
-<!-- ── 主内容区 ── -->
 <div id="main">
-
-  <!-- 画布 -->
   <div id="canvas-wrap">
     <div id="game-container"></div>
-    <div id="hint-bar">从上方工具栏拖入元素到画布</div>
+    <div id="hint-bar">点击选中节点，再从节点拖出到另一节点创建连接</div>
     <div id="coord-bar">就绪</div>
     <div id="trash-zone">🗑<span>删除</span></div>
-    <div id="op-hint"></div>
   </div>
 
-  <!-- 右侧面板 -->
   <div id="panel">
     <div class="tabs">
       <div class="tab active" data-tab="nodes">节点</div>
@@ -209,7 +97,7 @@
     </div>
 
     <div class="tab-content active" id="tab-nodes">
-      <div class="section-title">节点列表（点击选中）</div>
+      <div class="section-title">节点列表（点击选中，拖动移动位置）</div>
       <div class="node-list" id="node-list"></div>
       <div class="section-title">属性</div>
       <div class="prop-row"><label class="prop-label">id</label><input id="prop-id" type="text" readonly></div>
@@ -222,7 +110,7 @@
     </div>
 
     <div class="tab-content" id="tab-edges">
-      <div class="section-title">所有边</div>
+      <div class="section-title">所有边（从节点拖出创建）</div>
       <div class="edge-list" id="edge-list"></div>
     </div>
 
@@ -244,9 +132,7 @@
       <div class="prop-row"><label class="prop-label">名称</label><input id="meta-name" type="text"></div>
       <div class="prop-row"><label class="prop-label">难度</label>
         <select id="meta-difficulty">
-          <option value="简单">简单</option>
-          <option value="普通">普通</option>
-          <option value="困难">困难</option>
+          <option value="简单">简单</option><option value="普通">普通</option><option value="困难">困难</option>
         </select>
       </div>
       <div class="prop-row"><label class="prop-label">初始能量</label><input id="meta-energy" type="number"></div>
@@ -256,10 +142,9 @@
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
-<!-- 类型选择弹出框 -->
+<!-- 食物类型选择 -->
 <div id="type-popup">
   <div class="type-opt" data-val="leaf">🍃 Leaf</div>
   <div class="type-opt" data-val="berry">🫐 Berry</div>
@@ -286,12 +171,10 @@ class EditorLevel {
   constructor() {
     this.data = {
       id: 1, name: '', difficulty: '简单', startNode: -1, homeNode: -1,
-      initialEnergy: 120,
-      nodes: [], edges: [], food: [], wings: [],
+      initialEnergy: 120, nodes: [], edges: [], food: [], wings: [],
       fastTravel: [], npcs: [],
     };
   }
-
   addNode(x, y) {
     const id = this.data.nodes.length === 0 ? 0 : Math.max(...this.data.nodes.map(n => n.id)) + 1;
     this.data.nodes.push({ id, x, y, isStart: false, isHome: false, isDead: false, label: '' });
@@ -315,19 +198,14 @@ class EditorLevel {
     if (fields.isHome)  { this.data.nodes.forEach(n2 => n2.id !== id && (n2.isHome = false)); this.data.homeNode = id; }
   }
   getNode(id) { return this.data.nodes.find(n => n.id === id); }
-  getNodeAt(x, y, radius = 16) {
-    for (const n of this.data.nodes) {
-      if (Math.hypot(n.x - x, n.y - y) <= radius) return n;
-    }
+  getNodeAt(x, y, r = 16) {
+    for (const n of this.data.nodes) if (Math.hypot(n.x - x, n.y - y) <= r) return n;
     return null;
   }
-
   addEdge(a, b) {
     if (a === b) return false;
-    const exists = this.data.edges.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
-    if (exists) return false;
-    this.data.edges.push([a, b]);
-    return true;
+    if (this.data.edges.some(([x, y]) => (x === a && y === b) || (x === b && y === a))) return false;
+    this.data.edges.push([a, b]); return true;
   }
   removeEdge(a, b) { this.data.edges = this.data.edges.filter(([x, y]) => !(x === a && y === b) && !(x === b && y === a)); }
   getEdgeAt(x, y) {
@@ -337,16 +215,11 @@ class EditorLevel {
       const dx = nb.x - na.x, dy = nb.y - na.y, len = Math.hypot(dx, dy);
       if (len === 0) continue;
       const t = Math.max(0, Math.min(1, ((x - na.x)*dx + (y - na.y)*dy) / (len * len)));
-      const px = na.x + t*dx, py = na.y + t*dy;
-      if (Math.hypot(x - px, y - py) < 8) return [a, b];
+      if (Math.hypot(x - (na.x + t*dx), y - (na.y + t*dy)) < 8) return [a, b];
     }
     return null;
   }
-
-  addFood(nodeId, type = 'leaf') {
-    if (this.data.food.some(f => f.nodeId === nodeId)) return;
-    this.data.food.push({ nodeId, type });
-  }
+  addFood(nodeId, type = 'leaf') { if (!this.data.food.some(f => f.nodeId === nodeId)) this.data.food.push({ nodeId, type }); }
   removeFood(nodeId) { this.data.food = this.data.food.filter(f => f.nodeId !== nodeId); }
   cycleFood(nodeId) {
     const types = ['leaf', 'berry', 'apple'];
@@ -354,34 +227,22 @@ class EditorLevel {
     if (idx >= 0) {
       const cur = this.data.food[idx].type;
       const next = types[(types.indexOf(cur) + 1) % types.length];
-      if (next === 'leaf') { this.removeFood(nodeId); } else { this.data.food[idx].type = next; }
-    } else {
-      this.data.food.push({ nodeId, type: 'leaf' });
-    }
+      if (next === 'leaf') this.removeFood(nodeId); else this.data.food[idx].type = next;
+    } else { this.data.food.push({ nodeId, type: 'leaf' }); }
   }
-
   addWing(nodeId) { if (!this.data.wings.some(w => w.nodeId === nodeId)) this.data.wings.push({ nodeId }); }
   removeWing(nodeId) { this.data.wings = this.data.wings.filter(w => w.nodeId !== nodeId); }
   hasWing(nodeId) { return this.data.wings.some(w => w.nodeId === nodeId); }
-  toggleWing(nodeId) { if (this.hasWing(nodeId)) this.removeWing(nodeId); else this.addWing(nodeId); }
-
+  toggleWing(nodeId) { this.hasWing(nodeId) ? this.removeWing(nodeId) : this.addWing(nodeId); }
   addFastTravel(a, b) {
     if (a === b) return false;
-    const exists = this.data.fastTravel.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
-    if (exists) return false;
-    this.data.fastTravel.push([a, b]);
-    return true;
+    if (this.data.fastTravel.some(([x, y]) => (x === a && y === b) || (x === b && y === a))) return false;
+    this.data.fastTravel.push([a, b]); return true;
   }
   removeFastTravel(a, b) { this.data.fastTravel = this.data.fastTravel.filter(([x, y]) => !(x === a && y === b) && !(x === b && y === a)); }
-
-  addNPC(edgeA, edgeB) {
-    const id = 'npc_' + Date.now();
-    this.data.npcs.push({ id, type: 'frog', edgeA, edgeB, sneakEnergyCost: 20 });
-    return id;
-  }
+  addNPC(edgeA, edgeB) { const id = 'npc_' + Date.now(); this.data.npcs.push({ id, type: 'frog', edgeA, edgeB, sneakEnergyCost: 20 }); return id; }
   removeNPC(id) { this.data.npcs = this.data.npcs.filter(n => n.id !== id); }
   updateNPC(id, fields) { const n = this.data.npcs.find(n => n.id === id); if (n) Object.assign(n, fields); }
-
   toJSON() { return JSON.parse(JSON.stringify(this.data)); }
   fromJSON(obj) { this.data = JSON.parse(JSON.stringify(obj)); }
 }
@@ -392,490 +253,309 @@ const level = new EditorLevel();
 //  全局状态
 // ══════════════════════════════════════════════
 let selectedNodeId = null;
-let editorScene   = null;
+let editorScene     = null;
+const CW = 800, CH = 600, NR = 14;
 
-// 画布像素坐标（用于判断是否在画布范围内）
-const CANVAS_W = 800, CANVAS_H = 600;
-const NODE_RADIUS = 14;
+// 当前工具：'node'|'edge'|'fasttravel'|'npc'|'food'|'wing'
+let currentTool = null;
+
+// 橡皮筋拖拽状态
+const rb = { active: false, fromId: null, cx: 0, cy: 0 };
+// 节点移动拖拽状态
+const mv = { active: false, node: null, ox: 0, oy: 0 };
 
 // ══════════════════════════════════════════════
 //  Phaser 场景
 // ══════════════════════════════════════════════
-const PHASER_CONFIG = {
-  type: Phaser.AUTO, width: CANVAS_W, height: CANVAS_H,
-  parent: 'game-container', backgroundColor: '#87CEEB',
-  scene: { create },
-};
-
-const game = new Phaser.Game(PHASER_CONFIG);
+const game = new Phaser.Game({ type: Phaser.AUTO, width: CW, height: CH, parent: 'game-container', backgroundColor: '#87CEEB', scene: { create } });
 
 function create() {
   editorScene = this;
 
   // 背景
-  const bg = this.add.graphics();
-  bg.fillGradientStyle(0x87CEEB, 0x87CEEB, 0xB0E0E6, 0xB0E0E6, 1);
-  bg.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  this.add.graphics().fillGradientStyle(0x87CEEB, 0x87CEEB, 0xB0E0E6, 0xB0E0E6, 1).fillRect(0, 0, CW, CH);
+  const g = this.add.graphics();
+  g.fillStyle(0x4a9e30, 0.55);
+  for (let i = 0; i < 20; i++) { const bx = 30 + i * 40; g.fillTriangle(bx, CH, bx - 12, CH - 30, bx + 12, CH - 30); }
 
-  // 草地
-  const grass = this.add.graphics();
-  grass.fillStyle(0x4a9e30, 0.55);
-  for (let i = 0; i < 20; i++) {
-    const bx = 30 + i * 40;
-    grass.fillTriangle(bx, CANVAS_H, bx - 12, CANVAS_H - 30, bx + 12, CANVAS_H - 30);
-  }
-
-  // 图形层
   editorScene.edgeGfx     = this.add.graphics();
   editorScene.ftGfx       = this.add.graphics();
   editorScene.nodeGfx     = this.add.graphics();
-  editorScene.labelGfx    = this.add.graphics();
-  editorScene.overlayGfx  = this.add.graphics();
+  editorScene.labelGfx   = this.add.graphics();
+  editorScene.overlayGfx = this.add.graphics();
   editorScene.foodGfx     = this.add.graphics();
 
-  // 鼠标拖拽（节点拖动 + 边创建拖拽）
-  this.input.on('pointerdown', onPointerDown, this);
-  this.input.on('pointermove', onPointerMove, this);
-  this.input.on('pointerup',   onPointerUp,   this);
+  this.input.on('pointerdown', onDown, this);
+  this.input.on('pointermove', onMove, this);
+  this.input.on('pointerup',   onUp,   this);
 
-  // 初始化面板
-  bindPanelEvents();
+  bindPanel();
   updateAllPanels();
   redrawAll();
 }
 
+// ══════════════════════════════════════════════
+//  渲染
+// ══════════════════════════════════════════════
 function redrawAll() {
   if (!editorScene) return;
+  editorScene.children.list.filter(c => c.getData && c.getData('fl')).forEach(c => c.destroy());
 
-  // 清理食物标签文字
-  editorScene.children.list
-    .filter(c => c.getData && c.getData('type') === 'food-label')
-    .forEach(c => c.destroy());
+  editorScene.edgeGfx.clear(); editorScene.ftGfx.clear(); editorScene.nodeGfx.clear();
+  editorScene.labelGfx.clear(); editorScene.overlayGfx.clear(); editorScene.foodGfx.clear();
 
-  editorScene.edgeGfx.clear();
-  editorScene.ftGfx.clear();
-  editorScene.nodeGfx.clear();
-  editorScene.labelGfx.clear();
-  editorScene.overlayGfx.clear();
-  editorScene.foodGfx.clear();
-
-  // ── 边 ──
+  // 边
   for (const [a, b] of level.data.edges) {
     const na = level.getNode(a), nb = level.getNode(b);
     if (!na || !nb) continue;
     editorScene.edgeGfx.lineStyle(6, 0x6d4c2f, 1);
-    editorScene.edgeGfx.beginPath();
-    editorScene.edgeGfx.moveTo(na.x, na.y);
-    editorScene.edgeGfx.lineTo(nb.x, nb.y);
-    editorScene.edgeGfx.strokePath();
+    editorScene.edgeGfx.beginPath(); editorScene.edgeGfx.moveTo(na.x, na.y); editorScene.edgeGfx.lineTo(nb.x, nb.y); editorScene.edgeGfx.strokePath();
     editorScene.edgeGfx.lineStyle(3, 0x5a3e1b, 1);
-    editorScene.edgeGfx.beginPath();
-    editorScene.edgeGfx.moveTo(na.x, na.y);
-    editorScene.edgeGfx.lineTo(nb.x, nb.y);
-    editorScene.edgeGfx.strokePath();
+    editorScene.edgeGfx.beginPath(); editorScene.edgeGfx.moveTo(na.x, na.y); editorScene.edgeGfx.lineTo(nb.x, nb.y); editorScene.edgeGfx.strokePath();
   }
 
-  // ── 快速通道虚线 ──
+  // 快速通道
   for (const [a, b] of level.data.fastTravel) {
     const na = level.getNode(a), nb = level.getNode(b);
     if (!na || !nb) continue;
     const dx = nb.x - na.x, dy = nb.y - na.y, total = Math.hypot(dx, dy);
     if (total === 0) continue;
     const ux = dx / total, uy = dy / total;
-    let dist = 0, dashOn = true;
+    let d = 0, on = true;
     editorScene.ftGfx.lineStyle(3, 0xffd700, 0.7);
-    while (dist < total) {
-      const seg = dashOn ? 12 : 8;
-      const end = Math.min(dist + seg, total);
+    while (d < total) {
+      const seg = on ? 12 : 8;
       editorScene.ftGfx.beginPath();
-      editorScene.ftGfx.moveTo(na.x + ux * dist, na.y + uy * dist);
-      editorScene.ftGfx.lineTo(na.x + ux * end,   na.y + uy * end);
+      editorScene.ftGfx.moveTo(na.x + ux * d, na.y + uy * d);
+      editorScene.ftGfx.lineTo(na.x + ux * Math.min(d + seg, total), na.y + uy * Math.min(d + seg, total));
       editorScene.ftGfx.strokePath();
-      dist += seg; dashOn = !dashOn;
+      d += seg; on = !on;
     }
   }
 
-  // ── 节点 ──
+  // 节点
   for (const n of level.data.nodes) {
     const color = n.isStart ? 0x4CAF50 : n.isHome ? 0xFF5722 : n.isDead ? 0x9e9e9e : 0x8d6e63;
     editorScene.nodeGfx.fillStyle(0x000000, 0.2);
-    editorScene.nodeGfx.fillCircle(n.x + 2, n.y + 2, NODE_RADIUS);
+    editorScene.nodeGfx.fillCircle(n.x + 2, n.y + 2, NR);
     editorScene.nodeGfx.fillStyle(color, 1);
-    editorScene.nodeGfx.fillCircle(n.x, n.y, NODE_RADIUS);
+    editorScene.nodeGfx.fillCircle(n.x, n.y, NR);
     editorScene.nodeGfx.lineStyle(2, 0xffffff, 0.5);
-    editorScene.nodeGfx.strokeCircle(n.x, n.y, NODE_RADIUS);
-    // id 标签
+    editorScene.nodeGfx.strokeCircle(n.x, n.y, NR);
     editorScene.labelGfx.fillStyle(0x000000, 0.7);
     editorScene.labelGfx.fillCircle(n.x, n.y, 7);
     editorScene.labelGfx.fillStyle(0xffffff, 1);
     editorScene.labelGfx.fillCircle(n.x, n.y, 5);
   }
 
-  // ── 食物 ──
+  // 食物
   for (const f of level.data.food) {
     const n = level.getNode(f.nodeId);
     if (!n) continue;
     const colors = { leaf: 0x4CAF50, berry: 0xE91E63, apple: 0xF44336 };
     editorScene.foodGfx.fillStyle(colors[f.type] ?? 0x4CAF50, 0.9);
     editorScene.foodGfx.fillCircle(n.x, n.y - 22, 9);
-    const t = editorScene.add.text(n.x + 12, n.y - 22, f.type, {
-      fontSize: '10px', color: '#fff', backgroundColor: '#333', padding: { x: 3, y: 1 }
-    }).setOrigin(0, 0.5).setDepth(100);
-    t.setData('type', 'food-label');
+    const t = editorScene.add.text(n.x + 12, n.y - 22, f.type, { fontSize: '10px', color: '#fff', backgroundColor: '#333', padding: { x: 3, y: 1 } }).setOrigin(0, 0.5).setDepth(100);
+    t.setData('fl', true);
   }
 
-  // ── 翅膀 ──
+  // 翅膀
   for (const w of level.data.wings) {
     const n = level.getNode(w.nodeId);
     if (!n) continue;
-    editorScene.foodGfx.fillStyle(0x9C27B0, 0.8);
-    editorScene.foodGfx.fillEllipse(n.x, n.y - 38, 18, 12);
-    editorScene.foodGfx.fillStyle(0xE1BEE7, 0.6);
-    editorScene.foodGfx.fillEllipse(n.x, n.y - 38, 12, 7);
+    editorScene.foodGfx.fillStyle(0x9C27B0, 0.8); editorScene.foodGfx.fillEllipse(n.x, n.y - 38, 18, 12);
+    editorScene.foodGfx.fillStyle(0xE1BEE7, 0.6); editorScene.foodGfx.fillEllipse(n.x, n.y - 38, 12, 7);
   }
 
-  // ── NPC ──
+  // NPC
   for (const npc of level.data.npcs) {
     const na = level.getNode(npc.edgeA), nb = level.getNode(npc.edgeB);
     if (!na || !nb) continue;
     const mx = (na.x + nb.x) / 2, my = (na.y + nb.y) / 2;
-    editorScene.foodGfx.fillStyle(0x388e3c, 1);
-    editorScene.foodGfx.fillEllipse(mx, my, 22, 18);
-    editorScene.foodGfx.fillStyle(0x81c784, 1);
-    editorScene.foodGfx.fillEllipse(mx, my + 4, 14, 11);
-    editorScene.foodGfx.fillStyle(0xffffff, 1);
-    editorScene.foodGfx.fillCircle(mx - 7, my - 9, 6);
-    editorScene.foodGfx.fillCircle(mx + 7, my - 9, 6);
-    editorScene.foodGfx.fillStyle(0x1b5e20, 1);
-    editorScene.foodGfx.fillCircle(mx - 7, my - 9, 3);
-    editorScene.foodGfx.fillCircle(mx + 7, my - 9, 3);
+    editorScene.foodGfx.fillStyle(0x388e3c, 1); editorScene.foodGfx.fillEllipse(mx, my, 22, 18);
+    editorScene.foodGfx.fillStyle(0x81c784, 1); editorScene.foodGfx.fillEllipse(mx, my + 4, 14, 11);
+    editorScene.foodGfx.fillStyle(0xffffff, 1); editorScene.foodGfx.fillCircle(mx - 7, my - 9, 6); editorScene.foodGfx.fillCircle(mx + 7, my - 9, 6);
+    editorScene.foodGfx.fillStyle(0x1b5e20, 1); editorScene.foodGfx.fillCircle(mx - 7, my - 9, 3); editorScene.foodGfx.fillCircle(mx + 7, my - 9, 3);
   }
 
-  // ── 选中高亮 ──
+  // 选中高亮
   if (selectedNodeId !== null) {
     const n = level.getNode(selectedNodeId);
     if (n) {
-      editorScene.overlayGfx.lineStyle(3, 0xe94560, 1);
-      editorScene.overlayGfx.strokeCircle(n.x, n.y, 20);
-      editorScene.overlayGfx.lineStyle(2, 0xe94560, 0.25);
-      editorScene.overlayGfx.fillCircle(n.x, n.y, 24);
+      editorScene.overlayGfx.lineStyle(3, 0xe94560, 1); editorScene.overlayGfx.strokeCircle(n.x, n.y, 20);
+      editorScene.overlayGfx.lineStyle(2, 0xe94560, 0.25); editorScene.overlayGfx.fillCircle(n.x, n.y, 24);
     }
   }
 
-  // ── 边创建拖拽预览线 ──
-  if (dragState.inProgress && (dragState.tool === 'edge' || dragState.tool === 'fasttravel' || dragState.tool === 'npc')) {
-    const from = level.getNode(dragState.fromNodeId);
+  // 橡皮筋预览线
+  if (rb.active && rb.fromId !== null) {
+    const from = level.getNode(rb.fromId);
     if (from) {
-      const lineColor = dragState.tool === 'fasttravel' ? 0xffd700 : 0x4CAF50;
-      editorScene.overlayGfx.lineStyle(3, lineColor, 0.8);
+      const color = currentTool === 'fasttravel' ? 0xffd700 : 0x4CAF50;
+      editorScene.overlayGfx.lineStyle(3, color, 0.85);
       editorScene.overlayGfx.beginPath();
       editorScene.overlayGfx.moveTo(from.x, from.y);
-      editorScene.overlayGfx.lineTo(dragState.currentX, dragState.currentY);
+      editorScene.overlayGfx.lineTo(rb.cx, rb.cy);
       editorScene.overlayGfx.strokePath();
+      // 终点圆圈
+      editorScene.overlayGfx.lineStyle(2, color, 0.6);
+      editorScene.overlayGfx.strokeCircle(rb.cx, rb.cy, 10);
     }
   }
 }
 
 // ══════════════════════════════════════════════
-//  拖拽状态
+//  鼠标交互
 // ══════════════════════════════════════════════
-const dragState = {
-  inProgress: false,
-  tool: null,        // 当前工具：'node'|'edge'|'food'|'wing'|'fasttravel'|'npc'
-  fromNodeId: null,  // edge/fasttravel/npc 模式：起点节点 id
-  currentX: 0,
-  currentY: 0,
-  dragNode: null,    // 节点拖动
-  dragOffsetX: 0,
-  dragOffsetY: 0,
-};
-
-function onPointerDown(pointer) {
+function onDown(pointer) {
   const wx = pointer.x, wy = pointer.y;
-  const clickedNode = level.getNodeAt(wx, wy);
+  const node = level.getNodeAt(wx, wy);
 
-  if (dragState.tool === 'node') {
-    // 添加节点工具：点击画布空白处添加节点
-    if (!clickedNode) {
-      const id = level.addNode(wx, wy);
-      selectedNodeId = id;
-      refreshNodeSelects();
-      updateAllPanels();
-      redrawAll();
+  if (currentTool === 'node') {
+    // 添加节点
+    if (!node) { const id = level.addNode(wx, wy); selectNode(id); refreshAll(); redrawAll(); }
+    return;
+  }
+
+  if (currentTool === 'food') {
+    if (node) { showFoodPopup(node.id, pointer); }
+    return;
+  }
+
+  if (currentTool === 'wing') {
+    if (node) { level.toggleWing(node.id); refreshAll(); redrawAll(); }
+    return;
+  }
+
+  if (currentTool === 'edge' || currentTool === 'fasttravel' || currentTool === 'npc') {
+    if (node) {
+      // 开始橡皮筋：从节点拖出
+      rb.active = true; rb.fromId = node.id; rb.cx = wx; rb.cy = wy;
+      if (selectedNodeId !== node.id) selectNode(node.id);
     }
     return;
   }
 
-  if (dragState.tool === 'edge' || dragState.tool === 'fasttravel' || dragState.tool === 'npc') {
-    // 从节点拖出到另一节点
-    if (clickedNode) {
-      dragState.inProgress = true;
-      dragState.fromNodeId = clickedNode.id;
-      dragState.currentX = wx;
-      dragState.currentY = wy;
-    }
-    return;
-  }
-
-  if (dragState.tool === 'food' || dragState.tool === 'wing') {
-    // 从节点拖出到自身或空白处
-    if (clickedNode) {
-      if (dragState.tool === 'food') {
-        // 显示类型选择弹出框
-        showFoodPopup(clickedNode.id, pointer);
-      } else {
-        level.toggleWing(clickedNode.id);
-        updatePanel('items');
-        redrawAll();
-      }
-    }
-    return;
-  }
-
-  // 默认（无工具）：选中/拖动节点
-  if (clickedNode) {
-    selectedNodeId = clickedNode.id;
-    dragState.dragNode = clickedNode;
-    dragState.dragOffsetX = wx - clickedNode.x;
-    dragState.dragOffsetY = wy - clickedNode.y;
-    updateNodeProps();
-    updateCoordBar(clickedNode.x, clickedNode.y);
+  // 默认（无工具）：选中 + 开始移动
+  if (node) {
+    selectNode(node.id);
+    mv.active = true; mv.node = node; mv.ox = wx - node.x; mv.oy = wy - node.y;
+    updateCoordBar(node.x, node.y);
     redrawAll();
   } else {
-    selectedNodeId = null;
-    updateNodeProps();
-    document.getElementById('coord-bar').textContent = '就绪';
+    selectNode(null);
     redrawAll();
   }
 }
 
-function onPointerMove(pointer) {
+function onMove(pointer) {
   const wx = pointer.x, wy = pointer.y;
 
-  // 节点拖动
-  if (dragState.dragNode) {
-    dragState.dragNode.x = Math.max(NODE_RADIUS, Math.min(CANVAS_W - NODE_RADIUS, wx - dragState.dragOffsetX));
-    dragState.dragNode.y = Math.max(NODE_RADIUS, Math.min(CANVAS_H - NODE_RADIUS, wy - dragState.dragOffsetY));
-    document.getElementById('prop-x').value = Math.round(dragState.dragNode.x);
-    document.getElementById('prop-y').value = Math.round(dragState.dragNode.y);
-    updateCoordBar(dragState.dragNode.x, dragState.dragNode.y);
+  // 节点移动
+  if (mv.active && mv.node) {
+    mv.node.x = Math.max(NR, Math.min(CW - NR, wx - mv.ox));
+    mv.node.y = Math.max(NR, Math.min(CH - NR, wy - mv.oy));
+    document.getElementById('prop-x').value = Math.round(mv.node.x);
+    document.getElementById('prop-y').value = Math.round(mv.node.y);
+    updateCoordBar(mv.node.x, mv.node.y);
     redrawAll();
     return;
   }
 
-  // 边/快速通道/NPC 创建拖拽
-  if (dragState.inProgress) {
-    dragState.currentX = wx;
-    dragState.currentY = wy;
+  // 橡皮筋
+  if (rb.active) {
+    rb.cx = Math.max(0, Math.min(CW, wx));
+    rb.cy = Math.max(0, Math.min(CH, wy));
     redrawAll();
   }
 }
 
-function onPointerUp(pointer) {
+function onUp(pointer) {
   const wx = pointer.x, wy = pointer.y;
 
-  // 节点拖动结束
-  if (dragState.dragNode) {
-    dragState.dragNode = null;
-    return;
-  }
+  // 节点移动结束
+  if (mv.active) { mv.active = false; mv.node = null; return; }
 
-  // 边/快速通道/NPC 创建拖拽结束
-  if (dragState.inProgress) {
-    dragState.inProgress = false;
-    const targetNode = level.getNodeAt(wx, wy);
-
-    if (targetNode && targetNode.id !== dragState.fromNodeId) {
-      if (dragState.tool === 'edge') {
-        level.addEdge(dragState.fromNodeId, targetNode.id);
-        updatePanel('edges');
-      } else if (dragState.tool === 'fasttravel') {
-        level.addFastTravel(dragState.fromNodeId, targetNode.id);
-        updatePanel('items');
-      } else if (dragState.tool === 'npc') {
-        level.addNPC(dragState.fromNodeId, targetNode.id);
-        updatePanel('npcs');
-      }
+  // 橡皮筋结束
+  if (rb.active) {
+    rb.active = false;
+    const target = level.getNodeAt(wx, wy);
+    if (target && target.id !== rb.fromId) {
+      if (currentTool === 'edge') { level.addEdge(rb.fromId, target.id); refreshAll(); }
+      else if (currentTool === 'fasttravel') { level.addFastTravel(rb.fromId, target.id); refreshAll(); }
+      else if (currentTool === 'npc') { level.addNPC(rb.fromId, target.id); refreshAll(); }
     }
-
-    dragState.fromNodeId = null;
+    rb.fromId = null;
     redrawAll();
   }
 }
 
-function updateCoordBar(x, y) {
-  document.getElementById('coord-bar').textContent = `x: ${Math.round(x)}  y: ${Math.round(y)}`;
+// ══════════════════════════════════════════════
+//  工具栏
+// ══════════════════════════════════════════════
+function setTool(tool) {
+  currentTool = currentTool === tool ? null : tool;
+  document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+  if (currentTool) {
+    const btn = document.getElementById('btn-' + currentTool);
+    if (btn) btn.classList.add('active');
+  }
+  updateHint();
 }
 
-// ══════════════════════════════════════════════
-//  工具栏拖拽（从 toolbar 拖入画布）
-// ══════════════════════════════════════════════
-let currentTool = null; // null = 无工具（默认拖动节点）
-
-document.querySelectorAll('.tool-item').forEach(item => {
-  item.addEventListener('mousedown', e => {
-    // 开始工具拖拽
-    e.preventDefault();
-    startToolDrag(item.dataset.tool, item, e.clientX, e.clientY);
-  });
-});
-
-function startToolDrag(tool, itemEl, clientX, clientY) {
-  currentTool = tool;
-  itemEl.classList.add('dragging');
-
-  // 显示幽灵
-  const ghost = document.getElementById('drag-ghost');
-  const labels = { node: '⚫ 节点', edge: '━━ 边', food: '🍎 食物', wing: '🪁 翅膀', fasttravel: '⚡ 快速通道', npc: '🐸 NPC' };
-  ghost.textContent = labels[tool] || tool;
-  ghost.style.display = 'block';
-  ghost.style.left = clientX + 'px';
-  ghost.style.top  = clientY + 'px';
-
-  // 更新画布提示
-  const hint = document.getElementById('hint-bar');
+function updateHint() {
   const hints = {
     node: '点击画布空白处添加节点',
     edge: '从节点拖到另一节点创建边',
-    food: '点击节点选择食物类型',
-    wing: '点击节点放置/移除翅膀',
     fasttravel: '从节点拖到另一节点创建快速通道',
     npc: '从节点拖到另一节点创建 NPC',
+    food: '点击节点选择食物类型',
+    wing: '点击节点放置/移除翅膀',
   };
-  hint.textContent = hints[tool] || '';
-
-  redrawAll();
-
-  function onMouseMove(e) {
-    ghost.style.left = e.clientX + 'px';
-    ghost.style.top  = e.clientY + 'px';
-
-    // 检测是否在画布上
-    const wrap = document.getElementById('canvas-wrap');
-    const rect = wrap.getBoundingClientRect();
-    const onCanvas = e.clientX >= rect.left && e.clientX <= rect.right &&
-                     e.clientY >= rect.top  && e.clientY <= rect.bottom;
-    wrap.classList.toggle('tool-drag-over', onCanvas);
-  }
-
-  function onMouseUp(e) {
-    ghost.style.display = 'none';
-    itemEl.classList.remove('dragging');
-    document.getElementById('canvas-wrap').classList.remove('tool-drag-over');
-
-    // 检测落点
-    const wrap = document.getElementById('canvas-wrap');
-    const rect = wrap.getBoundingClientRect();
-    const onCanvas = e.clientX >= rect.left && e.clientX <= rect.right &&
-                     e.clientY >= rect.top  && e.clientY <= rect.bottom;
-
-    if (onCanvas) {
-      // 画布内坐标
-      const canvasX = e.clientX - rect.left;
-      const canvasY = e.clientY - rect.top;
-      const clickedNode = level.getNodeAt(canvasX, canvasY);
-
-      if (tool === 'node') {
-        const id = level.addNode(canvasX, canvasY);
-        selectedNodeId = id;
-        refreshNodeSelects();
-        updateAllPanels();
-        redrawAll();
-      } else if (tool === 'food' && clickedNode) {
-        showFoodPopup(clickedNode.id, e);
-      } else if (tool === 'wing' && clickedNode) {
-        level.toggleWing(clickedNode.id);
-        updatePanel('items');
-        redrawAll();
-      } else if ((tool === 'edge' || tool === 'fasttravel' || tool === 'npc') && clickedNode) {
-        // 设置拖拽状态，让 onPointerUp 处理
-        dragState.inProgress = true;
-        dragState.tool = tool;
-        dragState.fromNodeId = clickedNode.id;
-        dragState.currentX = canvasX;
-        dragState.currentY = canvasY;
-      }
-    }
-
-    // 保持当前工具激活（用于后续直接点击画布）
-    // 不重置 currentTool，让工具保持激活状态
-
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-    document.getElementById('hint-bar').textContent = '从上方工具栏拖入元素到画布';
-  }
-
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp);
+  document.getElementById('hint-bar').textContent = currentTool ? hints[currentTool] : '点击选中节点，再从节点拖出到另一节点创建连接';
 }
 
-// ── 右键取消当前工具 ──
-document.addEventListener('contextmenu', e => {
-  e.preventDefault();
-  currentTool = null;
-  dragState.inProgress = false;
-  dragState.fromNodeId = null;
-  document.getElementById('hint-bar').textContent = '从上方工具栏拖入元素到画布';
-  document.querySelectorAll('.tool-item').forEach(i => i.classList.remove('active'));
-  redrawAll();
-});
+document.getElementById('btn-node').addEventListener('click', () => setTool('node'));
+document.getElementById('btn-edge').addEventListener('click', () => setTool('edge'));
+document.getElementById('btn-fasttravel').addEventListener('click', () => setTool('fasttravel'));
+document.getElementById('btn-npc').addEventListener('click', () => setTool('npc'));
+document.getElementById('btn-food').addEventListener('click', () => setTool('food'));
+document.getElementById('btn-wing').addEventListener('click', () => setTool('wing'));
 
-// ── 垃圾桶区域 ──
-const trashZone = document.getElementById('trash-zone');
+// 右键取消工具
+document.addEventListener('contextmenu', e => { e.preventDefault(); setTool(null); });
+
+// 垃圾桶
 let trashActive = false;
-
 document.addEventListener('mousemove', e => {
-  const rect = trashZone.getBoundingClientRect();
-  trashActive = e.clientX >= rect.left && e.clientX <= rect.right &&
-                e.clientY >= rect.top  && e.clientY <= rect.bottom;
-  trashZone.classList.toggle('active', trashActive);
+  const rect = document.getElementById('trash-zone').getBoundingClientRect();
+  trashActive = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+  document.getElementById('trash-zone').classList.toggle('active', trashActive);
 });
-
 document.addEventListener('mouseup', e => {
   if (!trashActive) return;
-
   const wrap = document.getElementById('canvas-wrap');
   const rect = wrap.getBoundingClientRect();
-  const canvasX = e.clientX - rect.left;
-  const canvasY = e.clientY - rect.top;
-
-  // 垃圾桶点击：删除最近的节点
-  const node = level.getNodeAt(canvasX, canvasY, 30);
-  if (node) {
-    level.removeNode(node.id);
-    if (selectedNodeId === node.id) selectedNodeId = null;
-    refreshNodeSelects();
-    updateAllPanels();
-    redrawAll();
-    return;
-  }
-
-  const edge = level.getEdgeAt(canvasX, canvasY);
-  if (edge) {
-    level.removeEdge(edge[0], edge[1]);
-    updatePanel('edges');
-    redrawAll();
-    return;
-  }
+  const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
+  const node = level.getNodeAt(cx, cy, 30);
+  if (node) { level.removeNode(node.id); if (selectedNodeId === node.id) selectNode(null); refreshAll(); redrawAll(); return; }
+  const edge = level.getEdgeAt(cx, cy);
+  if (edge) { level.removeEdge(edge[0], edge[1]); refreshAll(); redrawAll(); }
 });
 
 // ══════════════════════════════════════════════
-//  食物类型选择弹出框
+//  食物类型弹出框
 // ══════════════════════════════════════════════
 const typePopup = document.getElementById('type-popup');
 let popupNodeId = null;
 
-function showFoodPopup(nodeId, e) {
+function showFoodPopup(nodeId, pointer) {
   popupNodeId = nodeId;
   const food = level.data.food.find(f => f.nodeId === nodeId);
-  const current = food ? food.type : null;
-
-  document.querySelectorAll('.type-opt').forEach(opt => {
-    opt.classList.toggle('selected', opt.dataset.val === current);
-  });
-
-  typePopup.style.left = (e.clientX + 10) + 'px';
-  typePopup.style.top  = (e.clientY + 10) + 'px';
+  const cur = food ? food.type : null;
+  document.querySelectorAll('.type-opt').forEach(o => o.classList.toggle('selected', o.dataset.val === cur));
+  typePopup.style.left = (pointer.clientX + 10) + 'px';
+  typePopup.style.top  = (pointer.clientY + 10) + 'px';
   typePopup.classList.add('show');
 }
 
@@ -883,223 +563,131 @@ typePopup.addEventListener('click', e => {
   const opt = e.target.closest('.type-opt');
   if (!opt) return;
   typePopup.classList.remove('show');
-
   const type = opt.dataset.val;
   const food = level.data.food.find(f => f.nodeId === popupNodeId);
-
-  if (food) {
-    if (type === 'leaf') {
-      level.removeFood(popupNodeId);
-    } else {
-      food.type = type;
-    }
-  } else {
-    if (type !== 'leaf') level.addFood(popupNodeId, type);
-  }
-
-  updatePanel('items');
-  redrawAll();
-  popupNodeId = null;
+  if (food) { if (type === 'leaf') level.removeFood(popupNodeId); else food.type = type; }
+  else if (type !== 'leaf') level.addFood(popupNodeId, type);
+  refreshAll(); redrawAll(); popupNodeId = null;
 });
-
-document.addEventListener('click', e => {
-  if (!typePopup.contains(e.target)) typePopup.classList.remove('show');
-});
+document.addEventListener('click', e => { if (!typePopup.contains(e.target)) typePopup.classList.remove('show'); });
 
 // ══════════════════════════════════════════════
-//  右侧面板
+//  面板
 // ══════════════════════════════════════════════
-function updateAllPanels() {
+function selectNode(id) {
+  selectedNodeId = id;
+  if (id !== null) updateNodeProps();
   refreshNodeList();
-  refreshEdgeList();
-  refreshFoodList();
-  refreshWingList();
-  refreshFTList();
-  refreshNPCList();
-  refreshMetaPanel();
-  updateNodeProps();
+  redrawAll();
 }
 
-function updatePanel(tab) {
-  if (tab === 'nodes') { refreshNodeList(); updateNodeProps(); }
-  if (tab === 'edges') refreshEdgeList();
-  if (tab === 'items') { refreshFoodList(); refreshWingList(); refreshFTList(); }
-  if (tab === 'npcs') refreshNPCList();
-  if (tab === 'meta') refreshMetaPanel();
-}
+function updateAllPanels() { refreshNodeList(); refreshEdgeList(); refreshFoodList(); refreshWingList(); refreshFTList(); refreshNPCList(); refreshMeta(); }
+function refreshAll() { updateAllPanels(); refreshNodeSelects(); }
 
 function refreshNodeList() {
   const list = document.getElementById('node-list');
-  list.innerHTML = '';
-  if (level.data.nodes.length === 0) {
-    list.innerHTML = '<div style="color:#555;font-size:12px;padding:4px;">无节点</div>';
-    return;
-  }
+  list.innerHTML = level.data.nodes.length === 0 ? '<div style="color:#555;font-size:12px">无节点</div>' : '';
   for (const n of level.data.nodes) {
     const div = document.createElement('div');
     div.className = 'list-item' + (selectedNodeId === n.id ? ' selected' : '');
     const tags = [n.isStart ? '🏁' : '', n.isHome ? '🏠' : '', n.isDead ? '💀' : ''].filter(Boolean).join(' ');
     div.textContent = `节点 ${n.id} (${Math.round(n.x)}, ${Math.round(n.y)}) ${tags}`;
-    div.addEventListener('click', () => {
-      selectedNodeId = n.id;
-      updateNodeProps();
-      refreshNodeList();
-      redrawAll();
-    });
+    div.addEventListener('click', () => selectNode(n.id));
     list.appendChild(div);
   }
 }
 
 function refreshEdgeList() {
   const list = document.getElementById('edge-list');
-  list.innerHTML = '';
-  if (level.data.edges.length === 0) {
-    list.innerHTML = '<div style="color:#555;font-size:12px;padding:4px;">无边</div>';
-    return;
-  }
+  list.innerHTML = level.data.edges.length === 0 ? '<div style="color:#555;font-size:12px">无边</div>' : '';
   for (const [a, b] of level.data.edges) {
     const div = document.createElement('div');
     div.className = 'list-item';
     div.innerHTML = `<span>${a} ↔ ${b}</span><span class="del">✕</span>`;
-    div.querySelector('.del').addEventListener('click', e => {
-      e.stopPropagation();
-      level.removeEdge(a, b);
-      refreshEdgeList();
-      redrawAll();
-    });
+    div.querySelector('.del').addEventListener('click', e => { e.stopPropagation(); level.removeEdge(a, b); refreshEdgeList(); redrawAll(); });
     list.appendChild(div);
   }
 }
 
 function refreshFoodList() {
   const list = document.getElementById('food-list');
-  list.innerHTML = '';
-  if (level.data.food.length === 0) {
-    list.innerHTML = '<div style="color:#555;font-size:12px;padding:4px;">无食物</div>';
-    return;
-  }
+  const emoji = { leaf: '🍃', berry: '🫐', apple: '🍎' };
+  list.innerHTML = level.data.food.length === 0 ? '<div style="color:#555;font-size:12px">无食物</div>' : '';
   for (const f of level.data.food) {
     const div = document.createElement('div');
     div.className = 'list-item';
-    const emoji = { leaf: '🍃', berry: '🫐', apple: '🍎' };
     div.innerHTML = `<span>${emoji[f.type]} 节点${f.nodeId}: ${f.type}</span><span class="del">✕</span>`;
-    div.querySelector('.del').addEventListener('click', e => {
-      e.stopPropagation();
-      level.removeFood(f.nodeId);
-      refreshFoodList();
-      redrawAll();
-    });
+    div.querySelector('.del').addEventListener('click', e => { e.stopPropagation(); level.removeFood(f.nodeId); refreshFoodList(); redrawAll(); });
     list.appendChild(div);
   }
 }
 
 function refreshWingList() {
   const list = document.getElementById('wing-list');
-  list.innerHTML = '';
-  if (level.data.wings.length === 0) {
-    list.innerHTML = '<div style="color:#555;font-size:12px;padding:4px;">无翅膀</div>';
-    return;
-  }
+  list.innerHTML = level.data.wings.length === 0 ? '<div style="color:#555;font-size:12px">无翅膀</div>' : '';
   for (const w of level.data.wings) {
     const div = document.createElement('div');
     div.className = 'list-item';
     div.innerHTML = `<span>🪁 节点 ${w.nodeId}</span><span class="del">✕</span>`;
-    div.querySelector('.del').addEventListener('click', e => {
-      e.stopPropagation();
-      level.removeWing(w.nodeId);
-      refreshWingList();
-      redrawAll();
-    });
+    div.querySelector('.del').addEventListener('click', e => { e.stopPropagation(); level.removeWing(w.nodeId); refreshWingList(); redrawAll(); });
     list.appendChild(div);
   }
 }
 
 function refreshFTList() {
   const list = document.getElementById('ft-list');
-  list.innerHTML = '';
-  if (level.data.fastTravel.length === 0) {
-    list.innerHTML = '<div style="color:#555;font-size:12px;padding:4px;">无快速通道</div>';
-    return;
-  }
+  list.innerHTML = level.data.fastTravel.length === 0 ? '<div style="color:#555;font-size:12px">无快速通道</div>' : '';
   for (const [a, b] of level.data.fastTravel) {
     const div = document.createElement('div');
     div.className = 'list-item';
     div.innerHTML = `<span>⚡ [${a} ↔ ${b}]</span><span class="del">✕</span>`;
-    div.querySelector('.del').addEventListener('click', e => {
-      e.stopPropagation();
-      level.removeFastTravel(a, b);
-      refreshFTList();
-      redrawAll();
-    });
+    div.querySelector('.del').addEventListener('click', e => { e.stopPropagation(); level.removeFastTravel(a, b); refreshFTList(); redrawAll(); });
     list.appendChild(div);
   }
 }
 
 function refreshNPCList() {
-  const container = document.getElementById('npc-cards');
-  container.innerHTML = '';
-  if (level.data.npcs.length === 0) {
-    container.innerHTML = '<div style="color:#555;font-size:12px;padding:4px;">无 NPC</div>';
-    return;
-  }
+  const c = document.getElementById('npc-cards');
+  c.innerHTML = level.data.npcs.length === 0 ? '<div style="color:#555;font-size:12px">无 NPC</div>' : '';
   for (const npc of level.data.npcs) {
     const card = document.createElement('div');
     card.className = 'npc-card';
     card.innerHTML = `
-      <div class="npc-card-header"><span>🐸 ${npc.id}</span><span class="del" style="color:#e94560;cursor:pointer;">✕ 删除</span></div>
-      <div class="prop-row"><label class="prop-label">edgeA</label><select data-npc="${npc.id}" data-field="edgeA">${nodeOptions(npc.edgeA)}</select></div>
-      <div class="prop-row"><label class="prop-label">edgeB</label><select data-npc="${npc.id}" data-field="edgeB">${nodeOptions(npc.edgeB)}</select></div>
+      <div class="npc-header"><span>🐸 ${npc.id}</span><span class="del" style="color:#e94560;cursor:pointer;">✕ 删除</span></div>
+      <div class="prop-row"><label class="prop-label">edgeA</label><select data-npc="${npc.id}" data-field="edgeA">${nodeOpts(npc.edgeA)}</select></div>
+      <div class="prop-row"><label class="prop-label">edgeB</label><select data-npc="${npc.id}" data-field="edgeB">${nodeOpts(npc.edgeB)}</select></div>
       <div class="prop-row"><label class="prop-label">能量消耗</label><input type="number" value="${npc.sneakEnergyCost}" data-npc="${npc.id}" data-field="sneakEnergyCost"></div>
     `;
-    card.querySelectorAll('select').forEach(sel => {
-      sel.addEventListener('change', e => {
-        level.updateNPC(e.target.dataset.npc, { [e.target.dataset.field]: parseInt(e.target.value) });
-        redrawAll();
-      });
-    });
-    card.querySelectorAll('input').forEach(inp => {
-      inp.addEventListener('change', e => {
-        level.updateNPC(e.target.dataset.npc, { [e.target.dataset.field]: parseInt(e.target.value) });
-      });
-    });
-    card.querySelector('.del').addEventListener('click', () => {
-      level.removeNPC(npc.id);
-      refreshNPCList();
-      redrawAll();
-    });
-    container.appendChild(card);
+    card.querySelectorAll('select').forEach(s => s.addEventListener('change', e => { level.updateNPC(e.target.dataset.npc, { [e.target.dataset.field]: parseInt(e.target.value) }); redrawAll(); }));
+    card.querySelectorAll('input').forEach(i => i.addEventListener('change', e => { level.updateNPC(e.target.dataset.npc, { [e.target.dataset.field]: parseInt(e.target.value) }); }));
+    card.querySelector('.del').addEventListener('click', () => { level.removeNPC(npc.id); refreshNPCList(); redrawAll(); });
+    c.appendChild(card);
   }
 }
 
-function nodeOptions(selectedId = -1) {
+function nodeOpts(sel = -1) {
   let s = '<option value="-1">—</option>';
-  for (const n of level.data.nodes) s += `<option value="${n.id}"${n.id === selectedId ? ' selected' : ''}>节点 ${n.id}</option>`;
+  for (const n of level.data.nodes) s += `<option value="${n.id}"${n.id === sel ? ' selected' : ''}>节点 ${n.id}</option>`;
   return s;
 }
 
-function refreshMetaPanel() {
+function refreshMeta() {
   document.getElementById('meta-name').value = level.data.name;
   document.getElementById('meta-difficulty').value = level.data.difficulty;
   document.getElementById('meta-energy').value = level.data.initialEnergy;
-  document.getElementById('meta-start').innerHTML = nodeOptions(level.data.startNode);
-  document.getElementById('meta-home').innerHTML = nodeOptions(level.data.homeNode);
+  document.getElementById('meta-start').innerHTML = nodeOpts(level.data.startNode);
+  document.getElementById('meta-home').innerHTML = nodeOpts(level.data.homeNode);
 }
 
 function refreshNodeSelects() {
-  document.getElementById('meta-start').innerHTML = nodeOptions(level.data.startNode);
-  document.getElementById('meta-home').innerHTML = nodeOptions(level.data.homeNode);
+  document.getElementById('meta-start').innerHTML = nodeOpts(level.data.startNode);
+  document.getElementById('meta-home').innerHTML = nodeOpts(level.data.homeNode);
   refreshNPCList();
 }
 
 function updateNodeProps() {
   const n = selectedNodeId !== null ? level.getNode(selectedNodeId) : null;
-  if (!n) {
-    ['prop-id','prop-x','prop-y','prop-label'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('prop-start').checked = false;
-    document.getElementById('prop-home').checked = false;
-    document.getElementById('prop-dead').checked = false;
-    return;
-  }
+  if (!n) { ['prop-id','prop-x','prop-y','prop-label'].forEach(i => document.getElementById(i).value = ''); ['prop-start','prop-home','prop-dead'].forEach(i => document.getElementById(i).checked = false); return; }
   document.getElementById('prop-id').value = n.id;
   document.getElementById('prop-x').value = Math.round(n.x);
   document.getElementById('prop-y').value = Math.round(n.y);
@@ -1109,7 +697,12 @@ function updateNodeProps() {
   document.getElementById('prop-dead').checked = n.isDead;
 }
 
-function bindPanelEvents() {
+function updateCoordBar(x, y) { document.getElementById('coord-bar').textContent = `x: ${Math.round(x)}  y: ${Math.round(y)}`; }
+
+// ══════════════════════════════════════════════
+//  面板事件绑定
+// ══════════════════════════════════════════════
+function bindPanel() {
   ['prop-x', 'prop-y', 'prop-label'].forEach(id => {
     document.getElementById(id).addEventListener('input', () => {
       if (selectedNodeId === null) return;
@@ -1118,11 +711,9 @@ function bindPanelEvents() {
         y: parseFloat(document.getElementById('prop-y').value) || 0,
         label: document.getElementById('prop-label').value,
       });
-      refreshNodeList();
-      redrawAll();
+      refreshNodeList(); redrawAll();
     });
   });
-
   ['prop-start', 'prop-home', 'prop-dead'].forEach(id => {
     document.getElementById(id).addEventListener('change', () => {
       if (selectedNodeId === null) return;
@@ -1131,32 +722,17 @@ function bindPanelEvents() {
         isHome: document.getElementById('prop-home').checked,
         isDead: document.getElementById('prop-dead').checked,
       });
-      refreshNodeList();
-      refreshNodeSelects();
-      redrawAll();
+      refreshNodeList(); refreshNodeSelects(); redrawAll();
     });
   });
-
   document.getElementById('meta-name').addEventListener('input', e => { level.data.name = e.target.value; });
   document.getElementById('meta-difficulty').addEventListener('change', e => { level.data.difficulty = e.target.value; });
   document.getElementById('meta-energy').addEventListener('change', e => { level.data.initialEnergy = parseInt(e.target.value) || 120; });
-  document.getElementById('meta-start').addEventListener('change', e => {
-    const id = parseInt(e.target.value);
-    if (id >= 0) level.updateNode(id, { isStart: true });
-    level.data.startNode = id;
-    refreshNodeList();
-  });
-  document.getElementById('meta-home').addEventListener('change', e => {
-    const id = parseInt(e.target.value);
-    if (id >= 0) level.updateNode(id, { isHome: true });
-    level.data.homeNode = id;
-    refreshNodeList();
-  });
+  document.getElementById('meta-start').addEventListener('change', e => { const id = parseInt(e.target.value); if (id >= 0) level.updateNode(id, { isStart: true }); level.data.startNode = id; refreshNodeList(); });
+  document.getElementById('meta-home').addEventListener('change', e => { const id = parseInt(e.target.value); if (id >= 0) level.updateNode(id, { isHome: true }); level.data.homeNode = id; refreshNodeList(); });
 }
 
-// ══════════════════════════════════════════════
-//  标签页
-// ══════════════════════════════════════════════
+// 标签页
 document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1169,53 +745,23 @@ document.querySelectorAll('.tab').forEach(tab => {
 // ══════════════════════════════════════════════
 //  导出 / 导入
 // ══════════════════════════════════════════════
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
-}
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2500); }
 
 document.getElementById('btn-export').addEventListener('click', () => {
-  const json = level.toJSON();
-  navigator.clipboard.writeText(JSON.stringify(json, null, 2)).then(() => {
-    showToast('✅ JSON 已复制到剪贴板！');
-  }).catch(() => {
-    showToast('⚠️ 复制失败，请手动复制');
-  });
+  navigator.clipboard.writeText(JSON.stringify(level.toJSON(), null, 2)).then(() => showToast('✅ JSON 已复制到剪贴板！')).catch(() => showToast('⚠️ 复制失败'));
 });
 
-document.getElementById('btn-import').addEventListener('click', () => {
-  document.getElementById('import-modal').classList.add('show');
-  document.getElementById('import-text').value = '';
-});
-
-document.getElementById('import-cancel').addEventListener('click', () => {
-  document.getElementById('import-modal').classList.remove('show');
-});
-
+document.getElementById('btn-import').addEventListener('click', () => { document.getElementById('import-modal').classList.add('show'); document.getElementById('import-text').value = ''; });
+document.getElementById('import-cancel').addEventListener('click', () => { document.getElementById('import-modal').classList.remove('show'); });
 document.getElementById('import-confirm').addEventListener('click', () => {
-  const text = document.getElementById('import-text').value.trim();
   try {
-    const data = JSON.parse(text);
-    level.fromJSON(data);
-    selectedNodeId = null;
-    refreshNodeSelects();
-    updateAllPanels();
-    redrawAll();
+    level.fromJSON(JSON.parse(document.getElementById('import-text').value.trim()));
+    selectNode(null); refreshAll(); redrawAll();
     document.getElementById('import-modal').classList.remove('show');
     showToast('✅ JSON 导入成功！');
-  } catch (e) {
-    showToast('❌ JSON 格式错误：' + e.message);
-  }
+  } catch (e) { showToast('❌ JSON 格式错误'); }
 });
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.getElementById('import-modal').classList.remove('show');
-    typePopup.classList.remove('show');
-  }
-});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.getElementById('import-modal').classList.remove('show'); typePopup.classList.remove('show'); });
 </script>
 </body>
 </html>
